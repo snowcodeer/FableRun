@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type {
   WakeLockNavigatorLike,
@@ -9,15 +15,26 @@ import type {
   WakeLockStatus,
 } from "@/lib/platform/wake-lock";
 
-/** Optional screen Wake Lock with visibility-change reacquisition. */
-export function useWakeLock(active = false): WakeLockResult {
-  const supported =
+function subscribeToWakeLockSupport(): () => void {
+  return () => undefined;
+}
+
+function getWakeLockSupport(): boolean {
+  return (
     typeof navigator !== "undefined" &&
     "wakeLock" in navigator &&
-    Boolean((navigator as WakeLockNavigatorLike).wakeLock);
-  const [status, setStatus] = useState<WakeLockStatus>(
-    supported ? "idle" : "unsupported",
+    Boolean((navigator as WakeLockNavigatorLike).wakeLock)
   );
+}
+
+/** Optional screen Wake Lock with visibility-change reacquisition. */
+export function useWakeLock(active = false): WakeLockResult {
+  const supported = useSyncExternalStore(
+    subscribeToWakeLockSupport,
+    getWakeLockSupport,
+    () => false,
+  );
+  const [status, setStatus] = useState<WakeLockStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<WakeLockSentinelLike | null>(null);
   const desiredRef = useRef(active);
@@ -58,6 +75,12 @@ export function useWakeLock(active = false): WakeLockResult {
       setStatus("active");
       return true;
     } catch (wakeLockError) {
+      if (
+        requestVersion !== requestVersionRef.current ||
+        !desiredRef.current
+      ) {
+        return false;
+      }
       setError(
         wakeLockError instanceof Error
           ? wakeLockError.message
@@ -74,8 +97,8 @@ export function useWakeLock(active = false): WakeLockResult {
     const sentinel = sentinelRef.current;
     sentinelRef.current = null;
     if (sentinel && !sentinel.released) await sentinel.release();
-    setStatus(supported ? "released" : "unsupported");
-  }, [supported]);
+    setStatus(sentinel ? "released" : "idle");
+  }, []);
 
   useEffect(() => {
     desiredRef.current = active;
@@ -103,5 +126,11 @@ export function useWakeLock(active = false): WakeLockResult {
     };
   }, [request]);
 
-  return { supported, status, error, request, release };
+  return {
+    supported,
+    status: supported ? status : "unsupported",
+    error,
+    request,
+    release,
+  };
 }

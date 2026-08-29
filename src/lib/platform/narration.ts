@@ -40,3 +40,10 @@ export interface NarrationResult {
   ok: boolean;
   reason?: NarrationUnavailableReason;
 }
+
+/** Summary returned by the optional, memory-only predictable-line prefetch. */
+export interface NarrationPrefetchResult {
+  requested: number;
+  ready: number;
+  unavailable: number;
+}

@@ -15,6 +15,7 @@ export function useAdaptiveAudio(
 ): AdaptiveAudioResult {
   const supported = AdaptiveAudioEngine.isSupported();
   const engineRef = useRef<AdaptiveAudioEngine | null>(null);
+  const operationRef = useRef(0);
   const [status, setStatus] = useState<AdaptiveAudioStatus>(
     supported ? "idle" : "unsupported",
   );
@@ -34,44 +35,56 @@ export function useAdaptiveAudio(
       setStatus("unsupported");
       return false;
     }
+    const operation = ++operationRef.current;
     setStatus("starting");
     try {
       const engine = getEngine();
       engine.setMix(mix);
       engine.setMuted(muted);
       const started = await engine.start();
-      setStatus(started ? "running" : "error");
+      if (operation === operationRef.current) {
+        setStatus(started ? "running" : "error");
+      }
       return started;
     } catch {
-      setStatus("error");
+      if (operation === operationRef.current) setStatus("error");
       return false;
     }
   }, [getEngine, mix, muted, supported]);
 
   const pause = useCallback(async () => {
+    const operation = ++operationRef.current;
     await engineRef.current?.pause();
-    setStatus((previous) =>
-      previous === "unsupported" || previous === "idle" ? previous : "paused",
-    );
+    if (operation === operationRef.current) {
+      setStatus((previous) =>
+        previous === "unsupported" || previous === "idle" ? previous : "paused",
+      );
+    }
   }, []);
 
   const resume = useCallback(async (): Promise<boolean> => {
     if (!engineRef.current) return start();
+    const operation = ++operationRef.current;
     try {
       const resumed = await engineRef.current.resume();
-      setStatus(resumed ? "running" : "error");
+      if (operation === operationRef.current) {
+        setStatus(resumed ? "running" : "error");
+      }
       return resumed;
     } catch {
-      setStatus("error");
+      if (operation === operationRef.current) setStatus("error");
       return false;
     }
   }, [start]);
 
   const stop = useCallback(async () => {
+    const operation = ++operationRef.current;
     const engine = engineRef.current;
     engineRef.current = null;
     await engine?.stop();
-    setStatus(supported ? "stopped" : "unsupported");
+    if (operation === operationRef.current) {
+      setStatus(supported ? "stopped" : "unsupported");
+    }
   }, [supported]);
 
   const setMix = useCallback((nextMix: AdaptiveAudioMix) => {
@@ -98,6 +111,7 @@ export function useAdaptiveAudio(
 
   useEffect(() => {
     return () => {
+      operationRef.current += 1;
       const engine = engineRef.current;
       engineRef.current = null;
       void engine?.stop();

@@ -58,6 +58,7 @@ export class AdaptiveAudioEngine {
   private scheduler: ReturnType<typeof setInterval> | null = null;
   private nextBeatAt = 0;
   private beatIndex = 0;
+  private generation = 0;
   private muted = false;
   private mix: Required<AdaptiveAudioMix> = { intensity: 0, performance: 0 };
 
@@ -72,6 +73,7 @@ export class AdaptiveAudioEngine {
     if (!AudioContextClass) return false;
 
     const context = new AudioContextClass();
+    const generation = ++this.generation;
     this.context = context;
 
     const compressor = context.createDynamicsCompressor();
@@ -88,7 +90,17 @@ export class AdaptiveAudioEngine {
     this.createChaseLayer(context);
     this.applyMix();
 
-    await context.resume();
+    try {
+      await context.resume();
+    } catch {
+      if (this.context === context) this.context = null;
+      if (context.state !== "closed") await context.close().catch(() => undefined);
+      return false;
+    }
+    if (this.context !== context || this.generation !== generation) {
+      if (context.state !== "closed") await context.close().catch(() => undefined);
+      return false;
+    }
     this.nextBeatAt = context.currentTime + 0.05;
     this.startScheduler();
     return context.state === "running";
@@ -114,20 +126,33 @@ export class AdaptiveAudioEngine {
   }
 
   async pause(): Promise<void> {
+    this.generation += 1;
     this.stopScheduler();
-    if (this.context?.state === "running") await this.context.suspend();
+    const context = this.context;
+    if (context?.state === "running") {
+      await context.suspend().catch(() => undefined);
+    }
   }
 
   async resume(): Promise<boolean> {
     if (!this.context) return this.start();
-    await this.context.resume();
-    if (this.context.state !== "running") return false;
-    this.nextBeatAt = this.context.currentTime + 0.05;
+    const context = this.context;
+    const generation = ++this.generation;
+    await context.resume().catch(() => undefined);
+    if (
+      this.context !== context ||
+      this.generation !== generation ||
+      context.state !== "running"
+    ) {
+      return false;
+    }
+    this.nextBeatAt = context.currentTime + 0.05;
     this.startScheduler();
     return true;
   }
 
   async stop(): Promise<void> {
+    this.generation += 1;
     this.stopScheduler();
     for (const node of this.longLivedNodes) {
       try {
@@ -143,7 +168,9 @@ export class AdaptiveAudioEngine {
     this.master = null;
     this.ambientGain = null;
     this.chaseGain = null;
-    if (context && context.state !== "closed") await context.close();
+    if (context && context.state !== "closed") {
+      await context.close().catch(() => undefined);
+    }
   }
 
   private createAmbientLayer(context: AudioContext): void {
