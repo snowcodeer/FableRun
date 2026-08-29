@@ -843,6 +843,7 @@ body { background:#0b0b0d; }
 .reel-phase-boyfriend .reel-story-copy { top:24%; }
 .reel-phase-boyfriend .reel-story-copy h1 { max-width:9ch; }
 .reel-phase-drop .reel-story-copy h1 { color:#ff5847; }
+.reel-phase-drop .reel-story-copy { animation:reel-run-faster .54s steps(2,end) infinite; }
 .reel-phase-chase .reel-story-copy { top:20%; }
 .reel-phase-pace .reel-story-copy,
 .reel-phase-turn .reel-story-copy,
@@ -873,6 +874,23 @@ body { background:#0b0b0d; }
   animation:reel-alert-in .25s ease both;
 }
 .reel-alert i { width:7px; height:7px; border-radius:50%; background:#fff; animation:reel-record .55s steps(2,end) infinite; }
+.reel-narrator-live {
+  position:absolute;
+  z-index:13;
+  top:calc(13% + 43px);
+  left:var(--reel-gutter);
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 9px;
+  border-radius:999px;
+  background:rgba(12,12,14,.78);
+  color:#f5f5f2;
+  font:800 8px/1 var(--font-data);
+  letter-spacing:.09em;
+  backdrop-filter:blur(10px);
+}
+.reel-narrator-live i { width:6px; height:6px; border-radius:50%; background:#ff5847; box-shadow:0 0 10px rgba(255,88,71,.8); animation:signal-pulse 1s ease-in-out infinite; }
 
 .reel-boyfriend {
   position:absolute;
@@ -1162,6 +1180,7 @@ body { background:#0b0b0d; }
 @keyframes reel-record { 50% { opacity:.25; } }
 @keyframes reel-copy-in { from { opacity:0; transform:translateY(18px) scale(.98); filter:blur(5px); } }
 @keyframes reel-alert-in { from { opacity:0; transform:scaleX(.78); } }
+@keyframes reel-run-faster { 50% { opacity:.34; filter:blur(1px); transform:scale(1.025); } }
 @keyframes reel-horde-run { to { transform:translateY(15%); } }
 @keyframes reel-runner-stumble { to { transform:translate(-6px,6px) rotate(-5deg); } }
 @keyframes reel-threat { from { width:25%; } to { width:82%; } }

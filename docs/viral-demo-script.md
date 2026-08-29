@@ -2,7 +2,7 @@
 
 ## The idea
 
-A vertical, breathless founder demo filmed during London’s first running hackathon. Your running footage stays full-screen. FableRun appears as a restrained live HUD over it; your spoken delivery carries the story.
+A vertical run that plays completely in-world. You never explain the product or address the audience. You speak to Joon; Joon answers; FableRun interrupts the run through its narrator, warnings, music and live HUD. The features reveal themselves through the emergency.
 
 **Runtime:** 2:00
 
@@ -14,19 +14,20 @@ A vertical, breathless founder demo filmed during London’s first running hacka
 
 ## Spoken script and shot list
 
-| Time | Picture / app beat | What you say |
+| Time | Picture / sound | Live dialogue |
 | --- | --- | --- |
-| 0:00–0:04 | Start on a close selfie shot while already running. FableRun shows `RUN STARTED`. No music at first. | **“I’m at London’s first running hackathon—and we’re not building another run tracker.”** |
-| 0:04–0:11 | Cut wider. Point behind you to your boyfriend. The HUD quietly adds `COMPANION CONNECTED`. | **“We’re building FableRun. It turns your actual run into a story. That’s my boyfriend behind me. He said he’d keep up.”** |
-| 0:11–0:18 | Look off-camera. Turn the volume up hard. Red emergency layer and apocalypse appear behind the real footage. | **“Wait. Headphones up. London just fell—and there are zombies forty-two metres behind us.”** |
-| 0:18–0:32 | Show the running HUD over your footage: pace, threat distance and the companion marker. Let the urgent score breathe for two seconds. | **“This isn’t a podcast playing over a run. FableRun changes the story from what I’m actually doing—my pace, my intervals, and how close the threat gets.”** |
-| 0:32–0:45 | Deliberately ease off. The HUD changes to `THREAT +12M`; the horde grows and the score gets tighter. | **“Watch. I slow down… and the story notices. The music changes. The zombies gain on us. And now he’s falling behind.”** |
-| 0:45–0:59 | Cut to the choice UI. Keep the two buttons visible, then tap the microphone instead. | **“It can give me two quick choices if I can’t talk—but I can also say anything. FableRun: I’m turning back for him.”** |
-| 0:59–1:13 | UI confirms `ROUTE REVERSED`. Turn around in the footage. Briefly show the generated rescue branch. | **“It understands the choice, writes a new branch in seconds, and sends me back. The narrator doesn’t speak for everyone either—each character has their own voice.”** |
-| 1:13–1:28 | Accelerate. Companion distance drops from 24m to 8m. The boyfriend’s voice comes through the headphones; score reaches maximum urgency. | **“I can hear him now. He’s shouting, ‘Don’t stop!’ Twenty-four metres. Sixteen. Eight. I’m nearly there.”** |
-| 1:28–1:41 | Sharp audio cut. HUD glitches to `SIGNAL LOST` and `NO PULSE DETECTED`. Horde closes over his marker. Hold your reaction for one second. | **“No—no, no. I was too late. My boyfriend just got eaten by a story we built at a running hackathon.”** |
-| 1:41–1:52 | Turn back into a hard final sprint. HUD says `400M LEFT`; urgent score returns at full intensity. | **“Now it’s just me, one last interval, and a very personal reason not to slow down.”** |
-| 1:52–2:00 | Stop, breathless. App shows `NEW PB`, then a clean FableRun waitlist card and QR code for the final eight seconds. | **“He got eaten. I got a PB. Scan this and run the next episode with us.”** |
+| 0:00–0:04 | Close selfie shot, already running. FableRun shows `RUN STARTED`. Keep the music barely audible. | **YOU:** “I’m at London’s first running hackathon! Joon, keep up! We need to win!” |
+| 0:04–0:11 | Swing the camera just enough to reveal Joon behind you. The HUD adds `COMPANION CONNECTED`. | **JOON, behind you:** “I’m right here! Why are you sprinting already?” **YOU:** “Because I’m not losing!” |
+| 0:11–0:13 | A loud emergency siren cuts across everything. Both of you react. The apocalypse layer appears behind the real footage. No dialogue. | **SIREN ONLY** |
+| 0:13–0:18 | The score ducks. `RUN FASTER` flashes red. The configured narrator voice enters suddenly and cleanly. | **NARRATOR:** “London just fell—and there are zombies forty-two metres behind you.” |
+| 0:18–0:32 | Hard switch to the pursuit score. Horde, distance and pace appear in the HUD. Keep running; do not look at the audience. | **YOU, to Joon:** “Joon—run!” **JOON:** “I am running!” **NARRATOR:** “Pursuit distance: thirty-one metres.” |
+| 0:32–0:45 | Your pace dips. The score tightens and the HUD flashes `THREAT +12M`. Joon slips farther behind. | **NARRATOR:** “Pace below target. The horde is closing.” **JOON:** “Wait—my leg’s gone.” **YOU:** “Don’t stop. Stay with me.” |
+| 0:45–0:59 | FableRun opens `GO BACK?` with two buttons and a live microphone. You answer aloud without touching either button. | **NARRATOR:** “Companion pace critical. Continue to safety—or go back.” **YOU:** “I’m going back. Keep talking to me, Joon.” |
+| 0:59–1:13 | The HUD confirms `ROUTE REVERSED`. Turn around in the footage as the story rewrites the run. | **NARRATOR:** “Choice accepted. Route reversed. Sprint for twenty seconds.” **JOON:** “You idiot—don’t come back!” **YOU:** “Too late.” |
+| 1:13–1:28 | Accelerate. The companion distance falls from 24m to 8m. Joon’s own voice comes through separately from the narrator. | **JOON:** “They’re right behind me!” **NARRATOR:** “Sixteen metres… twelve… eight.” **YOU:** “I can see you. Keep moving!” |
+| 1:28–1:41 | The horde reaches Joon. Cut his sentence off with impact, static and zombie noise; avoid a graphic visual. His marker collapses and the score drops out. | **JOON:** “Don’t stop. Just—” **STATIC / HORDE** **YOU:** “Joon? Joon!” **NARRATOR:** “Companion signal lost. No pulse detected.” |
+| 1:41–1:52 | One beat of silence, then the pursuit score slams back in. You turn and sprint alone. HUD: `400M LEFT`. | **NARRATOR:** “Final interval. Four hundred metres. Pursuit distance: twelve metres.” **YOU:** breathing only; no explanation. |
+| 1:52–2:00 | Stop, breathless. FableRun shows `NEW PB`, then holds the clean QR/waitlist card for eight seconds. | **NARRATOR:** “Run complete. New personal best.” **YOU, quietly:** “Joon… we won.” |
 
 ## On-screen text
 
@@ -34,7 +35,7 @@ Keep the overlay to these short app events only:
 
 - `RUN STARTED`
 - `COMPANION CONNECTED`
-- `OUTBREAK DETECTED`
+- `RUN FASTER`
 - `FALLING BACK`
 - `THREAT +12M`
 - `GO BACK?`
@@ -45,14 +46,15 @@ Keep the overlay to these short app events only:
 - `NEW PB`
 - `RUN THE NEXT EPISODE`
 
-Do not burn the spoken script into the video as captions during the demo capture. Add social captions later in Instagram or the editor so the FableRun interface still looks like a real app.
+Do not put explanatory presenter text on screen. Social captions can transcribe the live dialogue later, but the FableRun capture itself should look like an actual running app in use.
 
 ## Performance and edit notes
 
 - Begin mid-motion. The first frame should already feel alive.
-- Deliver the opening line directly to camera in under four seconds.
-- Let the apocalypse arrive on the word **“fell”** and raise the score at the same instant.
+- Deliver the opening line to Joon while running; it should feel caught live rather than presented.
+- Make the siren an interruption. Duck the calm score, let the narrator finish the London warning, then switch hard into the pursuit music.
 - Use three visual modes: face camera, full-screen running footage with HUD, and close app cutaways. Avoid rapid random cuts.
-- Leave a short silence immediately after `SIGNAL LOST`; that pause sells the joke.
-- Say the final line while genuinely out of breath. Hold the QR card motionless for the full final eight seconds.
+- Keep narrator, Joon and runner voices clearly distinct. No one explains the feature set.
+- Leave a short silence immediately after `SIGNAL LOST`; the empty space sells the loss before the final sprint.
+- Say “Joon… we won” while genuinely out of breath. Hold the QR card motionless for the full final eight seconds.
 - Keep the QR large, high-contrast and unobstructed. The same end card includes a native email field for viewers already watching on their phone.

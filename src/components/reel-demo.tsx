@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { useAdaptiveAudio } from "@/hooks/use-adaptive-audio";
+import { useNarration } from "@/hooks/use-narration";
 import { WaitlistForm } from "@/components/waitlist-form";
 
 type ReelPhase =
@@ -31,6 +32,7 @@ type VideoSource = "sample" | "upload" | "camera";
 
 const REEL_DURATION_SECONDS = 120;
 const SIGNUP_URL = "https://fablerun.vercel.app/waitlist";
+const OUTBREAK_WARNING = "London just fell—and there are zombies forty-two metres behind you.";
 
 const reelCopy: Record<Exclude<ReelPhase, "setup">, {
   eyebrow: string;
@@ -45,12 +47,12 @@ const reelCopy: Record<Exclude<ReelPhase, "setup">, {
   boyfriend: {
     eyebrow: "COMPANION TRACKER",
     headline: "CONNECTED",
-    caption: "Boyfriend · 6m behind",
+    caption: "Joon · 6m behind",
   },
   drop: {
     eyebrow: "EMERGENCY BROADCAST",
-    headline: "OUTBREAK DETECTED",
-    caption: "Audio intensity rising",
+    headline: "RUN FASTER",
+    caption: "Zombies · 42m",
   },
   chase: {
     eyebrow: "LIVE WARNING",
@@ -137,6 +139,8 @@ export default function ReelDemo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const objectUrlRef = useRef<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const sirenContextRef = useRef<AudioContext | null>(null);
+  const narrationTimerRef = useRef<number | null>(null);
   const animationRef = useRef(0);
   const frameRef = useRef<FrameRequestCallback>(() => undefined);
   const startedAtRef = useRef(0);
@@ -144,10 +148,16 @@ export default function ReelDemo() {
   const {
     mood,
     pause: pauseAudio,
+    setDucked: setAudioDucked,
     setMix: setAudioMix,
     start: startAudio,
     stop: stopAudio,
   } = useAdaptiveAudio({ intensity: 0.08, pace: 0.1, performance: 0.2 });
+  const {
+    cancel: cancelNarration,
+    speak: speakNarration,
+    status: narrationStatus,
+  } = useNarration();
 
   const activeCopy = phase === "setup" ? reelCopy.hook : reelCopy[phase];
   const progress = Math.min(100, (elapsed / REEL_DURATION_SECONDS) * 100);
@@ -163,13 +173,73 @@ export default function ReelDemo() {
     objectUrlRef.current = null;
   }, []);
 
+  const clearNarrationTimer = useCallback(() => {
+    if (narrationTimerRef.current !== null) {
+      window.clearTimeout(narrationTimerRef.current);
+      narrationTimerRef.current = null;
+    }
+  }, []);
+
+  const prepareSiren = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!sirenContextRef.current || sirenContextRef.current.state === "closed") {
+      sirenContextRef.current = new AudioContextClass();
+    }
+    if (sirenContextRef.current.state === "suspended") {
+      await sirenContextRef.current.resume();
+    }
+    return sirenContextRef.current;
+  }, []);
+
+  const playSiren = useCallback(async () => {
+    const context = await prepareSiren();
+    if (!context) return;
+    const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sawtooth";
+    oscillator.frequency.setValueAtTime(620, now);
+    for (let step = 1; step <= 7; step += 1) {
+      oscillator.frequency.linearRampToValueAtTime(step % 2 === 1 ? 980 : 620, now + step * 0.22);
+    }
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.24, now + 0.06);
+    gain.gain.setValueAtTime(0.2, now + 1.4);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.65);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 1.7);
+  }, [prepareSiren]);
+
+  const triggerOutbreak = useCallback(() => {
+    clearNarrationTimer();
+    void playSiren();
+    setAudioDucked(true);
+    narrationTimerRef.current = window.setTimeout(() => {
+      narrationTimerRef.current = null;
+      void speakNarration(OUTBREAK_WARNING, {
+        preferRemote: true,
+        voice: "narrator",
+        rate: 1.02,
+        pitch: 0.82,
+      }).finally(() => setAudioDucked(false));
+    }, 850);
+  }, [clearNarrationTimer, playSiren, setAudioDucked, speakNarration]);
+
   const stopTake = useCallback(() => {
     cancelAnimationFrame(animationRef.current);
+    clearNarrationTimer();
+    cancelNarration();
+    setAudioDucked(false);
     videoRef.current?.pause();
     setAudioMix(mixFor("end"));
     setElapsed(REEL_DURATION_SECONDS);
     setPhase("end");
-  }, [setAudioMix]);
+  }, [cancelNarration, clearNarrationTimer, setAudioDucked, setAudioMix]);
 
   const frame = useCallback((now: number) => {
     const nextElapsed = Math.min(
@@ -181,6 +251,7 @@ export default function ReelDemo() {
       currentPhaseRef.current = nextPhase;
       setAudioMix(mixFor(nextPhase));
       setPhase(nextPhase);
+      if (nextPhase === "drop") triggerOutbreak();
     }
     setElapsed(nextElapsed);
     if (nextElapsed >= REEL_DURATION_SECONDS) {
@@ -188,7 +259,7 @@ export default function ReelDemo() {
       return;
     }
     animationRef.current = requestAnimationFrame((nextNow) => frameRef.current(nextNow));
-  }, [setAudioMix, stopTake]);
+  }, [setAudioMix, stopTake, triggerOutbreak]);
 
   useEffect(() => {
     frameRef.current = frame;
@@ -197,11 +268,14 @@ export default function ReelDemo() {
   const startTake = async () => {
     cancelAnimationFrame(animationRef.current);
     setCameraError(null);
+    clearNarrationTimer();
+    cancelNarration();
+    setAudioDucked(false);
     setElapsed(0);
     currentPhaseRef.current = "hook";
     setPhase("hook");
     setAudioMix(mixFor("hook"));
-    await startAudio();
+    await Promise.all([startAudio(), prepareSiren()]);
 
     const video = videoRef.current;
     if (video) {
@@ -216,6 +290,9 @@ export default function ReelDemo() {
     cancelAnimationFrame(animationRef.current);
     setElapsed(0);
     setPhase("setup");
+    clearNarrationTimer();
+    cancelNarration();
+    setAudioDucked(false);
     setAudioMix(mixFor("hook"));
     void pauseAudio();
     const video = videoRef.current;
@@ -278,11 +355,13 @@ export default function ReelDemo() {
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animationRef.current);
+      clearNarrationTimer();
+      void sirenContextRef.current?.close();
       stopCamera();
       releaseObjectUrl();
       void stopAudio();
     };
-  }, [releaseObjectUrl, stopAudio, stopCamera]);
+  }, [clearNarrationTimer, releaseObjectUrl, stopAudio, stopCamera]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -314,7 +393,7 @@ export default function ReelDemo() {
         <div className="reel-apocalypse" aria-hidden="true" />
         <div className="reel-boyfriend" aria-hidden="true">
           <i />
-          <span>{phase === "loss" || phase === "end" ? "SIGNAL LOST" : "BOYFRIEND · 24M"}</span>
+          <span>{phase === "loss" || phase === "end" ? "SIGNAL LOST" : "JOON · 24M"}</span>
         </div>
         <div className="reel-horde" aria-hidden="true">{horde}</div>
         <div className="reel-scanlines" aria-hidden="true" />
@@ -334,6 +413,10 @@ export default function ReelDemo() {
 
         {(["drop", "chase", "pace", "turn", "rescue"] as ReelPhase[]).includes(phase) && (
           <div className="reel-alert"><i /> VOLUME UP · THREAT NEARBY</div>
+        )}
+
+        {narrationStatus === "speaking" && (
+          <div className="reel-narrator-live"><i /> NARRATOR · LIVE</div>
         )}
 
         {(["chase", "pace", "turn", "rescue", "sprint"] as ReelPhase[]).includes(phase) && (
