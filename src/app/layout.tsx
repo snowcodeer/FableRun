@@ -13,9 +13,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cliffhanger — Run the story",
+  metadataBase: new URL("https://fablerun.vercel.app"),
+  title: "FableRun — Run the story",
   description:
     "An adaptive audio adventure where the plot creates your workout and your run changes the ending.",
+  openGraph: {
+    title: "FableRun — Run the story",
+    description:
+      "An adaptive audio adventure where the plot creates your workout and your run changes the ending.",
+    images: [{ url: "/og.png", width: 1536, height: 1024, alt: "FableRun runner at night" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FableRun — Run the story",
+    description:
+      "An adaptive audio adventure where the plot creates your workout and your run changes the ending.",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

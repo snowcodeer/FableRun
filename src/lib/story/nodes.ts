@@ -41,7 +41,7 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "permissions",
     title: "Open the channel",
     storyText:
-      "Motion and audio can make the transmission react to you. You can continue without either permission; Cliffhanger will never block the story or ask you to move unsafely.",
+      "Motion and audio can make the transmission react to you. You can continue without either permission; FableRun will never block the story or ask you to move unsafely.",
     intendedDuration: { realSeconds: 30, demoSeconds: 5 },
     targetEffort: { rpe: 1, label: "setup", cue: "Choose permissions without rushing." },
     successThreshold: AUTO_THRESHOLD,

@@ -48,11 +48,11 @@ export interface ScrollLockedVideoHeroProps {
  */
 export default function ScrollLockedVideoHero({
   videoSrc = DEFAULT_VIDEO,
-  eyebrow = "CLIFFHANGER // EPISODE 01",
+  eyebrow = "FableRun · Episode 01",
   title = "THE CITY ISN’T EMPTY",
   tagline = "Run the story. Change the ending.",
-  scrollHint = "SWIPE TO BREACH",
-  continueLabel = "Enter the outbreak",
+  scrollHint = "Swipe to begin",
+  continueLabel = "Start your story",
   scrubDistance = 1250,
   onContinue,
   className,
@@ -310,7 +310,7 @@ export default function ScrollLockedVideoHero({
     <section
       className={`cinematic-hero ${className ?? ""}`}
       style={style}
-      aria-label="Cliffhanger cinematic introduction"
+      aria-label="FableRun cinematic introduction"
       onKeyDown={handleHeroKeyDown}
     >
       <video
@@ -339,11 +339,11 @@ export default function ScrollLockedVideoHero({
       <div className="fog-layer fog-layer--two" aria-hidden="true" />
 
       <header className="cinematic-hero__masthead">
-        <a className="wordmark" href="#intro-title" aria-label="Cliffhanger home">
-          CLIFF<span>HANGER</span>
+        <a className="wordmark" href="#intro-title" aria-label="FableRun home">
+          FABLE<span>RUN</span>
         </a>
         <div className="signal-chip">
-          <i aria-hidden="true" /> LIVE STORY ENGINE
+          <i aria-hidden="true" /> Adaptive story
         </div>
       </header>
 
@@ -364,8 +364,8 @@ export default function ScrollLockedVideoHero({
 
       <div className="cinematic-hero__footer">
         <div className="cinematic-hero__status">
-          <span>THREAT FEED</span>
-          <strong>{failed ? "SIGNAL DEGRADED — FALLBACK ACTIVE" : ready ? "SIGNAL ACQUIRED" : "ACQUIRING SIGNAL"}</strong>
+          <span>Story status</span>
+          <strong>{failed ? "Fallback ready" : ready ? "Ready to run" : "Loading story"}</strong>
         </div>
 
         {!revealed ? (

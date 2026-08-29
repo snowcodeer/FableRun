@@ -1,5 +1,5 @@
-import CliffhangerApp from "@/components/cliffhanger-app";
+import FableRunApp from "@/components/cliffhanger-app";
 
 export default function Home() {
-  return <CliffhangerApp episodeTitle="Last Light" initialDemoMode />;
+  return <FableRunApp episodeTitle="Last Light" initialDemoMode />;
 }

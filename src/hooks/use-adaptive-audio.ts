@@ -10,7 +10,7 @@ import {
   type AdaptiveAudioStatus,
 } from "@/lib/platform/adaptive-audio";
 
-/** React lifecycle wrapper around Cliffhanger's procedural Web Audio score. */
+/** React lifecycle wrapper around FableRun's procedural Web Audio score. */
 export function useAdaptiveAudio(
   initialMix: AdaptiveAudioMix = { intensity: 0, performance: 0 },
 ): AdaptiveAudioResult {

@@ -47,7 +47,7 @@ function geolocationMessage(error: GeolocationPositionError): string {
     return "A GPS position is currently unavailable. Move to an open area or use demo mode.";
   }
   if (error.code === error.TIMEOUT) {
-    return "GPS acquisition timed out. Cliffhanger will keep trying.";
+    return "GPS acquisition timed out. FableRun will keep trying.";
   }
   return "The browser could not read your location.";
 }

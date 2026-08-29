@@ -50,7 +50,7 @@ interface Profile {
   difficulty: Difficulty;
 }
 
-export interface CliffhangerAppProps {
+export interface FableRunAppProps {
   episodeTitle?: string;
   initialDemoMode?: boolean;
 }
@@ -61,10 +61,10 @@ const difficultyCopy: Record<Difficulty, { label: string; detail: string; time: 
   intense: { label: "Intense", detail: "Fast cuts, tighter recoveries", time: "12 min" },
 };
 
-export default function CliffhangerApp({
+export default function FableRunApp({
   episodeTitle = "Last Light",
   initialDemoMode = true,
-}: CliffhangerAppProps) {
+}: FableRunAppProps) {
   const [stage, setStage] = useState<Stage>("landing");
   const [profile, setProfile] = useState<Profile>({
     savee: "Natalie",
@@ -202,7 +202,7 @@ export default function CliffhangerApp({
     const next = { ...profile, savee: trimmed };
     setProfile(next);
     try {
-      window.localStorage.setItem("cliffhanger-profile", JSON.stringify(next));
+      window.localStorage.setItem("fablerun-profile", JSON.stringify(next));
     } catch {
       // Continue without persistence.
     }
@@ -406,7 +406,7 @@ export default function CliffhangerApp({
         <section className="screen screen--form">
           <ProgressHeader current={1} total={3} label="Create your stakes" />
           <div className="screen__copy">
-            <p className="eyebrow danger">PERSONALISE THE MISSION</p>
+            <p className="eyebrow danger">Your story</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>Who gets you to the finish line?</h1>
             <p>We’ll thread them into the story. Nothing leaves this device.</p>
           </div>
@@ -494,9 +494,9 @@ export default function CliffhangerApp({
         <section className="screen screen--permissions">
           <ProgressHeader current={2} total={3} label="Systems check" />
           <div className="screen__copy">
-            <p className="eyebrow safe">ON-DEVICE · PRIVATE</p>
+            <p className="eyebrow safe">Private by design</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>Ready your field kit.</h1>
-            <p>Cliffhanger only uses live signals to pace this episode. Precise location stays on your phone.</p>
+            <p>FableRun uses live signals only to pace this episode. Precise location stays on your phone.</p>
           </div>
 
           <div className="permission-list">
@@ -527,7 +527,7 @@ export default function CliffhangerApp({
           </div>
 
           <div className="demo-switch-card">
-            <div><span className="demo-pill">JUDGE MODE</span><strong>Reliable simulation</strong><small>Runs without GPS or external voice services.</small></div>
+            <div><span className="demo-pill">Demo mode</span><strong>Reliable simulation</strong><small>Runs without GPS or external voice services.</small></div>
             <button
               type="button"
               className={`toggle ${demoMode ? "is-on" : ""}`}
@@ -555,13 +555,13 @@ export default function CliffhangerApp({
             <span className="threat-dot threat-dot--b" />
           </div>
           <div className="calibration-copy">
-            <p className="eyebrow safe">BASELINE ACQUIRING</p>
+            <p className="eyebrow safe">Finding your pace</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>Walk, then find your easy run.</h1>
             <p>No heroics yet. We’re learning what “fast” means for you.</p>
           </div>
           <div className="calibration-metric">
             <strong>{`00:${String(calibrationTime).padStart(2, "0")}`}</strong>
-            <span>CALIBRATION REMAINING</span>
+            <span>Calibration remaining</span>
           </div>
           <div className="waveform waveform--wide" aria-label="Audio signal active">
             {Array.from({ length: 28 }, (_, index) => <i key={index} style={{ "--wave": `${24 + ((index * 17) % 62)}%` } as React.CSSProperties} />)}
@@ -577,7 +577,7 @@ export default function CliffhangerApp({
             <span>EP. 01</span>
           </div>
           <div className="briefing-copy">
-            <p className="eyebrow danger">TRANSMISSION RECEIVED</p>
+            <p className="eyebrow danger">Episode 01</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>{episodeTitle}</h1>
             <p>“{profile.savee} is trapped beyond the bridge. The shelter doors close in ten minutes.”</p>
           </div>
@@ -595,16 +595,16 @@ export default function CliffhangerApp({
         <section className={`run-screen intensity-${scene.instruction.toLowerCase()}`}>
           <div className="run-screen__fog" aria-hidden="true" />
           <header className="run-header">
-            <div className="live-mark"><i /> LIVE · EP 01</div>
+            <div className="live-mark"><i /> Live run</div>
             <button className="demo-label-button" onClick={() => setDemoOpen(!demoOpen)} aria-expanded={demoOpen}>
-              DEMO CONTROLS <ChevronIcon />
+              Demo <ChevronIcon />
             </button>
           </header>
 
           <div className="run-progress" aria-label={`${Math.round(runProgress)} percent through episode`}><i style={{ width: `${runProgress}%` }} /></div>
 
           <div className="run-primary">
-            <p className="eyebrow">INTERVAL {scene.intervalNumber} · {scene.label}</p>
+            <p className="eyebrow">Interval {scene.intervalNumber} · {scene.label}</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>{scene.instruction}</h1>
             <div className="run-countdown" aria-live="polite">{formatTime(sceneTime)}</div>
             <div className="target-line"><i /> {scene.cue}</div>
@@ -626,23 +626,23 @@ export default function CliffhangerApp({
           </div>
 
           <div className="run-metrics">
-            <Metric label="PACE" value={paceLabel(tracking.paceSecondsPerKm)} unit="/KM" />
-            <Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" />
+            <Metric label="Pace" value={paceLabel(tracking.paceSecondsPerKm)} unit="/km" />
+            <Metric label="Distance" value={distance.toFixed(2)} unit="km" />
             <div className="threat-metric">
-              <div><span>THREAT</span><strong>{threatDistance}<small>M</small></strong></div>
+              <div><span>Threat distance</span><strong>{threatDistance}<small>m</small></strong></div>
               <div className="threat-track"><i style={{ width: `${Math.max(12, Math.min(90, threatDistance / 1.7))}%` }} /><b /></div>
-              <em>{threatDistance < 60 ? "CLOSING" : "HELD"}</em>
+              <em>{threatDistance < 60 ? "Closing" : "Held"}</em>
             </div>
           </div>
 
           <div className="run-actions">
-            <button className="pause-button" onClick={pauseRun}><PauseIcon /> PAUSE / END</button>
-            <button className="spectator-button" onClick={() => setSpectator(true)}><ScreenIcon /> SPECTATOR</button>
+            <button className="pause-button" onClick={pauseRun}><PauseIcon /> Pause</button>
+            <button className="spectator-button" onClick={() => setSpectator(true)}><ScreenIcon /> Spectator</button>
           </div>
 
           {demoOpen && (
             <aside className="demo-console" aria-label="Demo simulation controls">
-              <div><span className="demo-pill">SIMULATION</span><strong>Choose interval result</strong><button onClick={() => setDemoOpen(false)} aria-label="Close demo controls">×</button></div>
+              <div><span className="demo-pill">Simulation</span><strong>Choose interval result</strong><button onClick={() => setDemoOpen(false)} aria-label="Close demo controls">×</button></div>
               <div className="demo-results">
                 {(["strong", "success", "near", "miss"] as RunResult[]).map((item) => (
                   <button key={item} className={result === item ? "is-active" : ""} onClick={() => setResult(item)}>{item === "near" ? "Near miss" : item}</button>
@@ -684,14 +684,14 @@ export default function CliffhangerApp({
 
       {stage === "choice" && (
         <section className="screen screen--choice">
-          <div className="decision-timer"><span>DECISION WINDOW</span><strong>08</strong></div>
+          <div className="decision-timer"><span>Decision window</span><strong>08</strong></div>
           <div className="choice-copy">
-            <p className="eyebrow danger">ROUTE COLLAPSED</p>
+            <p className="eyebrow danger">Story choice</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>You choose the next move.</h1>
             <p>“{decisionModel?.prompt ?? "Choose the safest route for you."}”</p>
           </div>
           <div className="voice-wave" aria-label="Listening for voice choice"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
-          <p className="listening">VOICE PROMPT · SAY OR TAP A ROUTE</p>
+          <p className="listening">Say a route or tap below</p>
           <div className="route-choices">
             {(decisionModel?.options ?? []).map((option, index) => (
               <button key={option.id} onClick={() => selectChoice(option.id as "rescue_together" | "signal_escape")}><span>{index === 0 ? "A" : "B"}</span><div><strong>{option.label}</strong><small>{option.description}</small></div><ArrowIcon /></button>
@@ -705,12 +705,12 @@ export default function CliffhangerApp({
         <section className={`screen screen--ending ending-${result}`}>
           <div className="ending-light" aria-hidden="true" />
           <div className="ending-copy">
-            <p className="eyebrow safe">EXTRACTION // {formatElapsed(Math.round(summaryModel.elapsedSeconds))}</p>
+            <p className="eyebrow safe">Run complete · {formatElapsed(Math.round(summaryModel.elapsedSeconds))}</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>{endingModel.title}</h1>
             <blockquote>“{endingModel.story}”</blockquote>
             <p>{summaryModel.encouragement}</p>
           </div>
-          <div className="ending-badge"><i>✓</i><span><strong>{result === "strong" ? "STRONG EXTRACTION" : "EXTRACTION COMPLETE"}</strong><small>STORY CONTINUES · EPISODE 02 UNLOCKED</small></span></div>
+          <div className="ending-badge"><i>✓</i><span><strong>{result === "strong" ? "Strong finish" : "Story complete"}</strong><small>Episode 02 unlocked</small></span></div>
           <button className="primary-action" onClick={advanceScene}><span>Begin safe cooldown</span><ArrowIcon /></button>
         </section>
       )}
@@ -718,24 +718,24 @@ export default function CliffhangerApp({
       {stage === "summary" && (
         <section className="screen screen--summary">
           <div className="summary-heading">
-            <p className="eyebrow safe">EPISODE COMPLETE</p>
+            <p className="eyebrow safe">Episode complete</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>{summaryModel.outcomeTitle}</h1>
             <p>{episodeTitle} · {summaryModel.outcomeText}</p>
           </div>
           <div className="summary-hero-stat"><strong>{formatElapsed(Math.round(summaryModel.elapsedSeconds))}</strong><span>STORY TIME</span></div>
           <div className="summary-grid">
-            <Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" />
-            <Metric label="AVG PACE" value={paceLabel(averagePace)} unit="/KM" />
-            <Metric label="THREAT GAP" value={`+${threatDistance}`} unit="M" />
-            <Metric label="STORY SCORE" value={String(Math.round(summaryModel.averageScore ?? 0))} unit="%" />
+            <Metric label="Distance" value={distance.toFixed(2)} unit="km" />
+            <Metric label="Average pace" value={paceLabel(averagePace)} unit="/km" />
+            <Metric label="Threat gap" value={`+${threatDistance}`} unit="m" />
+            <Metric label="Story score" value={String(Math.round(summaryModel.averageScore ?? 0))} unit="%" />
           </div>
           <div className="interval-report">
-            <div><span>INTERVAL PERFORMANCE</span><strong>{summaryModel.completedIntervals} / 3 completed</strong></div>
+            <div><span>Interval performance</span><strong>{summaryModel.completedIntervals} / 3 completed</strong></div>
             {(activeStoryState.scores.length ? activeStoryState.scores : [0, 0, 0]).map((value, index) => (
               <div className="interval-row" key={index}><span>0{index + 1}</span><i><b style={{ width: `${value}%` }} /></i><em>{value >= 85 ? "STRONG" : value >= 70 ? "HELD" : "STORY SHIFT"}</em></div>
             ))}
           </div>
-          <div className="story-impact"><span>YOUR STORY IMPACT</span><p>{summaryModel.encouragement} {profile.savee} remembers your {choice === "rescue_together" ? "decision to go back together" : "signal from the rooftop"}.</p></div>
+          <div className="story-impact"><span>Your story impact</span><p>{summaryModel.encouragement} {profile.savee} remembers your {choice === "rescue_together" ? "decision to go back together" : "signal from the rooftop"}.</p></div>
           <button className="primary-action" onClick={() => { setChoice(null); setStoryState(null); tracking.reset(); goTo("briefing"); }}><span>Run it differently</span><RestartIcon /></button>
           <button className="text-action" onClick={() => goTo("landing")}>Return to title</button>
         </section>
@@ -751,8 +751,8 @@ function AmbientChrome() {
 function AppHeader({ onHome, demoMode }: { onHome: () => void; demoMode: boolean }) {
   return (
     <header className="app-header">
-      <button className="wordmark wordmark--button" onClick={onHome}>CLIFF<span>HANGER</span></button>
-      {demoMode && <span className="demo-pill">DEMO MODE</span>}
+      <button className="wordmark wordmark--button" onClick={onHome}>FABLE<span>RUN</span></button>
+      {demoMode && <span className="demo-pill">Demo mode</span>}
     </header>
   );
 }
@@ -783,7 +783,7 @@ function SpectatorView({ scene, sceneIndex, sceneTime, profile, distance, threat
   return (
     <main className="spectator-view">
       <AmbientChrome />
-      <header><div className="wordmark">CLIFF<span>HANGER</span></div><p>Interactive stories control the workout. The workout controls the ending.</p><div className="live-mark"><i /> RUNNER LIVE</div></header>
+      <header><div className="wordmark">FABLE<span>RUN</span></div><p>Interactive stories control the workout. The workout controls the ending.</p><div className="live-mark"><i /> Runner live</div></header>
       <section className="spectator-stage">
         <div className="spectator-scene">
           <p className="eyebrow danger">SCENE {String(sceneIndex + 1).padStart(2, "0")} · {scene.label.toUpperCase()}</p>
@@ -793,10 +793,10 @@ function SpectatorView({ scene, sceneIndex, sceneTime, profile, distance, threat
           <div className="spectator-wave" aria-hidden="true">{Array.from({ length: 36 }, (_, index) => <i key={index} style={{ height: `${14 + ((index * 31) % 72)}%` }} />)}</div>
         </div>
         <aside className="spectator-data">
-          <div className="spectator-runner"><span>RUNNER</span><strong>Runner 01</strong><small>RUNNING TO {profile.savee.toUpperCase()}</small></div>
-          <div className="spectator-metrics"><Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" /><Metric label="INTERVAL" value={String(scene.intervalNumber).padStart(2, "0")} unit={`/ ${String(scene.totalMovementScenes).padStart(2, "0")}`} /></div>
-          <div className="spectator-threat"><span>SWARM DISTANCE</span><strong>{threatDistance}<small> METRES</small></strong><i><b style={{ width: `${Math.min(90, threatDistance / 1.7)}%` }} /></i></div>
-          <div className="event-log"><span>RECENT STORY EVENT</span><p>{recentEvent}</p></div>
+          <div className="spectator-runner"><span>Runner</span><strong>Runner 01</strong><small>Running to {profile.savee}</small></div>
+          <div className="spectator-metrics"><Metric label="Distance" value={distance.toFixed(2)} unit="km" /><Metric label="Interval" value={String(scene.intervalNumber).padStart(2, "0")} unit={`/ ${String(scene.totalMovementScenes).padStart(2, "0")}`} /></div>
+          <div className="spectator-threat"><span>Threat distance</span><strong>{threatDistance}<small> metres</small></strong><i><b style={{ width: `${Math.min(90, threatDistance / 1.7)}%` }} /></i></div>
+          <div className="event-log"><span>Recent story event</span><p>{recentEvent}</p></div>
         </aside>
       </section>
       <button className="spectator-exit" onClick={onExit}>Exit spectator view</button>
