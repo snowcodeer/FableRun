@@ -45,6 +45,10 @@
 - The interface is wired to the canonical story controller, tracking, adaptive audio, wake lock, and narration hooks; the temporary five-scene adapter has been removed.
 - Local mobile E2E proved personalisation, strong rescue and miss/survival branches, cooldown/summary, pause/resume, early safe ending, and zero browser console errors.
 - Local narration evidence proved configured server-side ElevenLabs audio and an in-memory cache miss followed by a hit.
+- Production deployment from source milestone `cd9b5b6` completed and the canonical alias returned HTTP 200; the hero asset returned 200 and the local intro video returned 206 range delivery.
+- Production mobile E2E at 390×844 proved intro release, exact body unlock, personalisation with Zoe, the multi-node strong route, a personalized decision, rescue ending, cooldown, summary, and zero console errors.
+- Production desktop spectator QA at 1440×900 proved the live story node, distance, interval, threat, and event feed without horizontal overflow.
+- Production narration returned configured `audio/mpeg` with matching non-empty bodies and a cache miss followed by a hit; fallback source remains explicitly visible in the run HUD.
 
 ## Known limitations
 
@@ -54,4 +58,4 @@
 
 ## Next highest-priority task
 
-- Deploy this integrated milestone, verify the canonical alias and production narration headers, and capture the complete production mobile acceptance journey.
+- Run a physical outdoor GPS session before treating live pace acquisition as field-proven; keep deploying each green `main` milestone to the canonical alias for observable acceptance.
