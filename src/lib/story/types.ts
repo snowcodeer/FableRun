@@ -100,6 +100,8 @@ export interface StoryNode {
   musicIntensity: number;
   visualTheme: VisualTheme;
   decision?: StoryDecision;
+  /** Short narrative feedback shown after a measured effort. */
+  performanceResponses?: Readonly<Record<PerformanceClassification, string>>;
   isHighIntensityInterval?: boolean;
   isTerminal?: boolean;
 }
@@ -174,6 +176,7 @@ export interface StoryHistoryEntry {
   nextNodeId: StoryNodeId;
   classification: PerformanceClassification;
   score: number | null;
+  performanceResponse: string | null;
   decisionId?: string;
   elapsedSeconds: number;
 }
@@ -212,4 +215,23 @@ export interface RunSummary {
   elapsedSeconds: number;
   decisions: Readonly<Record<string, string>>;
   encouragement: string;
+}
+
+export interface StoryRouteValidation {
+  choiceId: string;
+  realNodeIds: readonly StoryNodeId[];
+  demoNodeIds: readonly StoryNodeId[];
+  realSeconds: number;
+  demoSeconds: number;
+  highIntensityIntervals: number;
+}
+
+export interface StoryGraphValidation {
+  valid: boolean;
+  errors: readonly string[];
+  realRouteSeconds: number;
+  demoRouteSeconds: number;
+  warmupCalibrationSeconds: number;
+  highIntensityNodeIds: readonly StoryNodeId[];
+  routes: readonly StoryRouteValidation[];
 }

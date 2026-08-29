@@ -55,10 +55,10 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     title: "Find your signal",
     storyText:
       "Move at a comfortable effort while the radio learns your baseline. Keep full control, watch your surroundings, and slow or stop whenever you need.",
-    intendedDuration: { realSeconds: 45, demoSeconds: 8 },
+    intendedDuration: { realSeconds: 30, demoSeconds: 7 },
     targetEffort: { rpe: 3, label: "easy", cue: "Comfortable, controlled movement." },
     successThreshold: { strongSuccess: 82, success: 65, nearMiss: 45 },
-    transitions: onward("briefing"),
+    transitions: onward("easy_start"),
     musicIntensity: 0.24,
     visualTheme: "safehouse",
   },
@@ -71,7 +71,7 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     intendedDuration: { realSeconds: 35, demoSeconds: 6 },
     targetEffort: { rpe: 2, label: "easy", cue: "Breathe and preview the route." },
     successThreshold: AUTO_THRESHOLD,
-    transitions: onward("easy_start"),
+    transitions: onward("sprint_one"),
     musicIntensity: 0.28,
     visualTheme: "evacuation_route",
   },
@@ -81,10 +81,10 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     title: "Leave the safehouse",
     storyText:
       "The street is quiet. Settle into an easy rhythm, {{runnerName}}. The goal is control, not speed.",
-    intendedDuration: { realSeconds: 75, demoSeconds: 10 },
+    intendedDuration: { realSeconds: 60, demoSeconds: 10 },
     targetEffort: { rpe: 4, label: "steady", cue: "Easy, conversational effort." },
     successThreshold: { strongSuccess: 82, success: 64, nearMiss: 45 },
-    transitions: onward("sprint_one"),
+    transitions: onward("briefing"),
     musicIntensity: 0.38,
     visualTheme: "evacuation_route",
   },
@@ -100,6 +100,14 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     transitions: onward("recovery_one"),
     musicIntensity: 0.76,
     visualTheme: "alley_pursuit",
+    performanceResponses: {
+      strong_success: "Clean break, {{runnerName}}. You gained ground before the gate dropped.",
+      success: "You are through with room to breathe. The radio signal steadies.",
+      near_miss:
+        '"Still with you," {{relationshipName}} says. The gate bought enough time; ease down now.',
+      miss:
+        "You take cover instead of forcing the pace. Safe choice — the route remains open.",
+    },
     isHighIntensityInterval: true,
   },
   recovery_one: {
@@ -107,7 +115,7 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "recovery",
     title: "Gate sealed",
     storyText:
-      "The gate drops behind you. Ease right down. Let your breathing settle; stopping is always allowed.",
+      'The gate drops behind you. {{relationshipName}}: "I can hear you, {{runnerName}}. Breathe." Ease right down; stopping is always allowed.',
     intendedDuration: { realSeconds: 60, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Slow down and regain control." },
     successThreshold: AUTO_THRESHOLD,
@@ -127,6 +135,15 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     transitions: onward("recovery_two"),
     musicIntensity: 0.84,
     visualTheme: "horde_pressure",
+    performanceResponses: {
+      strong_success:
+        "You clear the floodlights before the horde turns. {{relationshipName}} marks a faster route.",
+      success: "You reach the depot doors in control. The barricade holds behind you.",
+      near_miss:
+        'The doors catch at the last second. "You made it," {{relationshipName}} says. Recover fully.',
+      miss:
+        "You divert through a side entrance without chasing the clock. You are safe and still moving forward.",
+    },
     isHighIntensityInterval: true,
   },
   recovery_two: {
@@ -134,7 +151,7 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "recovery",
     title: "Inside the depot",
     storyText:
-      "You are through. Recover fully while a second transmission crackles into focus. {{relationshipName}} is close.",
+      'You are through. {{relationshipName}}: "The office door is jammed, but I am safe for now." Recover fully while the route loads.',
     intendedDuration: { realSeconds: 60, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Easy movement or a complete stop." },
     successThreshold: AUTO_THRESHOLD,
@@ -189,6 +206,15 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     },
     musicIntensity: 1,
     visualTheme: "last_push",
+    performanceResponses: {
+      strong_success:
+        "The lever snaps down and the lock releases. {{relationshipName}} is already moving toward you.",
+      success: "The release turns just in time. You and {{relationshipName}} have a clear route out.",
+      near_miss:
+        "The main lock seals, so you guide {{relationshipName}} into a secure room and keep the radio connected.",
+      miss:
+        "You stop rather than force an unsafe push. {{relationshipName}} follows your voice to cover; both of you are secure.",
+    },
     isHighIntensityInterval: true,
   },
   final_sprint_escape: {
@@ -208,6 +234,15 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     },
     musicIntensity: 1,
     visualTheme: "last_push",
+    performanceResponses: {
+      strong_success:
+        "The flare catches high above the skyline. Evacuation answers immediately for you and {{relationshipName}}.",
+      success: "The flare burns steadily. The rescue channel confirms your signal.",
+      near_miss:
+        "The first flare fails, but your radio beacon reaches the rescue channel. You take cover to wait.",
+      miss:
+        "You choose stable footing over the rooftop clock. From cover, you keep the rescue frequency alive.",
+    },
     isHighIntensityInterval: true,
   },
   ending_rescue: {

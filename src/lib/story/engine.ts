@@ -9,7 +9,9 @@ import type {
   RunState,
   RunSummary,
   ScoreBreakdown,
+  StoryDecision,
   StoryEngineConfig,
+  StoryGraphValidation,
   StoryNode,
   StoryNodeId,
   SuccessThresholds,
@@ -96,6 +98,27 @@ export function renderTemplate(template: string, profile: RunnerProfile): string
 
 export function renderStoryText(node: StoryNode, profile: RunnerProfile): string {
   return renderTemplate(node.storyText, profile);
+}
+
+export function renderDecision(node: StoryNode, profile: RunnerProfile): StoryDecision | null {
+  if (!node.decision) return null;
+  return {
+    prompt: renderTemplate(node.decision.prompt, profile),
+    options: node.decision.options.map((option) => ({
+      ...option,
+      label: renderTemplate(option.label, profile),
+      description: renderTemplate(option.description, profile),
+    })),
+  };
+}
+
+export function getPerformanceResponse(
+  node: StoryNode,
+  classification: PerformanceClassification,
+  profile: RunnerProfile,
+): string | null {
+  const response = node.performanceResponses?.[classification];
+  return response ? renderTemplate(response, profile) : null;
 }
 
 export function classifyScore(
@@ -205,6 +228,9 @@ export function advanceStory(state: RunState, input: AdvanceStoryInput = {}): Ru
   );
   const classifications = { ...state.classifications };
   if (intervalScore) classifications[classification] += 1;
+  const performanceResponse = intervalScore
+    ? getPerformanceResponse(node, classification, state.profile)
+    : null;
 
   return {
     ...state,
@@ -222,6 +248,7 @@ export function advanceStory(state: RunState, input: AdvanceStoryInput = {}): Ru
         nextNodeId,
         classification,
         score: intervalScore?.score ?? null,
+        performanceResponse,
         decisionId,
         elapsedSeconds,
       },
@@ -272,19 +299,25 @@ export function summarizeRun(state: RunState): RunSummary {
     totalStops: state.totalStops,
     elapsedSeconds: state.elapsedSeconds,
     decisions: state.decisions,
-    encouragement:
-      outcome === "in_progress"
-        ? "Stay controlled and choose the safest pace for you."
-        : "Chapter complete. Recovery is part of the story.",
+    encouragement: getSummaryEncouragement(state, outcome),
   };
 }
 
-export interface StoryGraphValidation {
-  valid: boolean;
-  errors: readonly string[];
-  realRouteSeconds: number;
-  demoRouteSeconds: number;
-  highIntensityNodeIds: readonly StoryNodeId[];
+function getSummaryEncouragement(
+  state: RunState,
+  outcome: RunSummary["outcome"],
+): string {
+  if (outcome === "in_progress") return "Stay controlled and choose the safest pace for you.";
+  if (state.classifications.miss > 0) {
+    return "You adapted without forcing the pace. Safe decisions kept the story moving.";
+  }
+  if (state.classifications.strong_success > 0) {
+    return "You found another gear while staying in control. Recover well.";
+  }
+  if (state.classifications.success > 0) {
+    return "You held a strong, controlled effort. Recovery is part of the story.";
+  }
+  return "Chapter complete. Recovery is part of the story.";
 }
 
 export function validateStoryGraph(
@@ -295,6 +328,8 @@ export function validateStoryGraph(
   const errors: string[] = [];
   const nodeIds = Object.keys(nodes) as StoryNodeId[];
   const highIntensityNodeIds = nodeIds.filter((id) => nodes[id].isHighIntensityInterval);
+  const warmupCalibrationSeconds =
+    nodes.calibration.intendedDuration.realSeconds + nodes.easy_start.intendedDuration.realSeconds;
 
   for (const node of Object.values(nodes)) {
     for (const [transitionName, target] of Object.entries(node.transitions) as Array<
@@ -311,13 +346,30 @@ export function validateStoryGraph(
     if (node.targetEffort.rpe < 1 || node.targetEffort.rpe > 10) {
       errors.push(`${node.id}.targetEffort.rpe must be between 1 and 10`);
     }
+    if (node.intendedDuration.realSeconds <= 0 || node.intendedDuration.demoSeconds <= 0) {
+      errors.push(`${node.id} must have finite positive durations`);
+    }
+    if (node.isHighIntensityInterval) {
+      if (!node.performanceResponses) {
+        errors.push(`${node.id} must define all performance narrative responses`);
+      }
+      if (node.intendedDuration.realSeconds > 60) {
+        errors.push(`${node.id} must remain a short interval of 60 seconds or less`);
+      }
+    }
   }
 
   if (highIntensityNodeIds.length !== 4) {
     errors.push(`Expected four sprint branch nodes (three per route), found ${highIntensityNodeIds.length}`);
   }
 
-  const route = (choice: "rescue_together" | "signal_escape", mode: RunMode): number => {
+  if (warmupCalibrationSeconds < 60 || warmupCalibrationSeconds > 90) {
+    errors.push(
+      `Calibration and warm-up must total 60-90 seconds; received ${warmupCalibrationSeconds}`,
+    );
+  }
+
+  const route = (choice: "rescue_together" | "signal_escape", mode: RunMode) => {
     let state = createInitialRunState({
       mode,
       profile: { runnerName: "Runner", relationshipName: "Alex", relationshipLabel: "friend" },
@@ -325,27 +377,73 @@ export function validateStoryGraph(
     });
     let total = 0;
     let guard = 0;
+    const sequence: StoryNodeId[] = [];
     while (!state.completed && guard < nodeIds.length + 2) {
       const node = nodes[state.currentNodeId];
+      sequence.push(node.id);
       const duration = getNodeDuration(node, mode, normalized);
       total += duration;
       state = advanceStory(state, node.decision ? { decisionId: choice, elapsedSeconds: duration } : { elapsedSeconds: duration });
       guard += 1;
     }
     if (!state.completed) errors.push(`${mode} ${choice} route did not reach summary`);
-    return total;
+    sequence.push(state.currentNodeId);
+    return { total, sequence, state };
   };
 
-  const realRouteSeconds = route("rescue_together", "real");
-  const demoRouteSeconds = route("signal_escape", "demo");
-  if (realRouteSeconds < 8 * 60 || realRouteSeconds > 12 * 60) {
-    errors.push(`Real route must last 8-12 minutes; received ${realRouteSeconds} seconds`);
+  const routes = ["rescue_together", "signal_escape"].map((choiceId) => {
+    const choice = choiceId as "rescue_together" | "signal_escape";
+    const real = route(choice, "real");
+    const demo = route(choice, "demo");
+    const highIntensityIntervals = real.sequence.filter(
+      (id) => nodes[id].isHighIntensityInterval,
+    ).length;
+    if (real.sequence.join("|") !== demo.sequence.join("|")) {
+      errors.push(`${choice} uses different transitions in real and demo modes`);
+    }
+    if (highIntensityIntervals !== 3) {
+      errors.push(`${choice} must contain exactly three high-intensity intervals`);
+    }
+    if (real.total < 8 * 60 || real.total > 12 * 60) {
+      errors.push(`${choice} real route must last 8-12 minutes; received ${real.total} seconds`);
+    }
+    if (demo.total >= real.total) errors.push(`${choice} demo route must be faster than real mode`);
+    return {
+      choiceId,
+      realNodeIds: real.sequence,
+      demoNodeIds: demo.sequence,
+      realSeconds: real.total,
+      demoSeconds: demo.total,
+      highIntensityIntervals,
+    };
+  });
+
+  const reachable = new Set<StoryNodeId>();
+  const pending: StoryNodeId[] = ["onboarding"];
+  while (pending.length) {
+    const id = pending.pop();
+    if (!id || reachable.has(id)) continue;
+    reachable.add(id);
+    const node = nodes[id];
+    const targets = [
+      ...Object.values(node.transitions),
+      ...(node.decision?.options.map((option) => option.nextNodeId) ?? []),
+    ];
+    for (const target of targets) if (!reachable.has(target)) pending.push(target);
   }
-  if (demoRouteSeconds >= realRouteSeconds) {
-    errors.push("Demo route must be faster than real mode");
+  for (const id of nodeIds) {
+    if (!reachable.has(id)) errors.push(`${id} is unreachable from onboarding`);
   }
 
-  return { valid: errors.length === 0, errors, realRouteSeconds, demoRouteSeconds, highIntensityNodeIds };
+  return {
+    valid: errors.length === 0,
+    errors,
+    realRouteSeconds: routes[0].realSeconds,
+    demoRouteSeconds: routes[0].demoSeconds,
+    warmupCalibrationSeconds,
+    highIntensityNodeIds,
+    routes,
+  };
 }
 
 export { CLASSIFICATION_KEYS };
