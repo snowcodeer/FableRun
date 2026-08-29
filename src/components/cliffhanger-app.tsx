@@ -2,6 +2,29 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import ScrollLockedVideoHero from "@/components/ui/scroll-locked-video-hero";
+import { useAdaptiveAudio } from "@/hooks/use-adaptive-audio";
+import { useNarration } from "@/hooks/use-narration";
+import { useRunTracking } from "@/hooks/use-run-tracking";
+import { useWakeLock } from "@/hooks/use-wake-lock";
+import {
+  advanceRun,
+  chooseRoute,
+  createReadyRunState,
+  getCurrentScene,
+  getDecisionModel,
+  getEndingModel,
+  getSummaryModel,
+  latestPerformanceResponse,
+  livePerformance,
+  narrationPrefetchLines,
+  paceLabel,
+  runnerProfileFromForm,
+  threatDistanceFor,
+  type DemoIntervalResult,
+  type StorySceneModel,
+} from "@/lib/cliffhanger-controller";
+import type { RunState } from "@/lib/story";
+import type { DemoGpsCondition, DemoPace } from "@/lib/platform/run-tracking";
 
 type Stage =
   | "landing"
@@ -16,7 +39,7 @@ type Stage =
 type Difficulty = "beginner" | "regular" | "intense";
 type Relationship = "Partner" | "Friend" | "Sibling" | "Parent";
 type PermissionState = "idle" | "ready" | "fallback";
-type RunResult = "strong" | "success" | "near" | "miss";
+type RunResult = DemoIntervalResult;
 
 interface Profile {
   savee: string;
@@ -24,62 +47,10 @@ interface Profile {
   difficulty: Difficulty;
 }
 
-interface RunScene {
-  instruction: "RUN" | "PUSH" | "SPRINT" | "RECOVER" | "DECIDE";
-  label: string;
-  duration: number;
-  story: (name: string) => string;
-  pace: string;
-  intensity: number;
-}
-
 export interface CliffhangerAppProps {
   episodeTitle?: string;
   initialDemoMode?: boolean;
 }
-
-const runScenes: RunScene[] = [
-  {
-    instruction: "RUN",
-    label: "Quiet streets",
-    duration: 52,
-    story: (name) => `Keep it quiet. ${name} is three blocks beyond the bridge.`,
-    pace: "6:04",
-    intensity: 34,
-  },
-  {
-    instruction: "PUSH",
-    label: "Bridge approach",
-    duration: 34,
-    story: () => "The bridge is lifting. Beat it—or take the tunnel.",
-    pace: "5:18",
-    intensity: 63,
-  },
-  {
-    instruction: "SPRINT",
-    label: "Swarm crossing",
-    duration: 22,
-    story: (name) => `${name} can see you. Twenty seconds. Make them count.`,
-    pace: "4:31",
-    intensity: 94,
-  },
-  {
-    instruction: "RECOVER",
-    label: "Service corridor",
-    duration: 42,
-    story: () => "Door sealed. Breathe. Even the undead hate stairs.",
-    pace: "7:46",
-    intensity: 29,
-  },
-  {
-    instruction: "SPRINT",
-    label: "Extraction",
-    duration: 28,
-    story: (name) => `Extraction is moving. Get ${name} to the light.`,
-    pace: "4:42",
-    intensity: 100,
-  },
-];
 
 const difficultyCopy: Record<Difficulty, { label: string; detail: string; time: string }> = {
   beginner: { label: "Beginner", detail: "Shorter pushes, longer cover", time: "8 min" },
@@ -102,23 +73,58 @@ export default function CliffhangerApp({
   const [audioState, setAudioState] = useState<PermissionState>("idle");
   const [motionState, setMotionState] = useState<PermissionState>("idle");
   const [calibrationTime, setCalibrationTime] = useState(12);
-  const [sceneIndex, setSceneIndex] = useState(0);
-  const [sceneTime, setSceneTime] = useState(runScenes[0].duration);
+  const [storyState, setStoryState] = useState<RunState | null>(null);
+  const [sceneTime, setSceneTime] = useState(10);
   const [paused, setPaused] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [spectator, setSpectator] = useState(false);
   const [result, setResult] = useState<RunResult>("success");
-  const [choice, setChoice] = useState<"roof" | "tunnel" | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-  const [distance, setDistance] = useState(0.84);
+  const [choice, setChoice] = useState<"rescue_together" | "signal_escape" | null>(null);
+  const [demoPace, setDemoPace] = useState<DemoPace>("easy");
+  const [demoGps, setDemoGps] = useState<DemoGpsCondition>("available");
+  const [demoTimeScale, setDemoTimeScale] = useState(4);
+  const [forceBrowserVoice, setForceBrowserVoice] = useState(false);
   const stageTitleRef = useRef<HTMLHeadingElement>(null);
+  const sceneStartRef = useRef({ distanceMeters: 0, elapsedMs: 0 });
+  const baselineSpeedRef = useRef(2.55);
 
-  const scene = runScenes[sceneIndex];
-  const threatDistance = Math.max(
-    18,
-    Math.round(128 - sceneIndex * 19 + (result === "strong" ? 16 : result === "miss" ? -18 : 0)),
+  const tracking = useRunTracking({
+    mode: demoMode ? "demo" : "live",
+    demoPace,
+    demoOutcome: result === "miss" ? "miss" : "success",
+    demoGps,
+    demoTimeScale,
+  });
+  const audioMix = useAdaptiveAudio();
+  const narration = useNarration();
+  const wakeLock = useWakeLock(false);
+  const prefetchNarration = narration.prefetch;
+  const setAudioMix = audioMix.setMix;
+
+  const previewState = useMemo(
+    () => createReadyRunState({
+      profile: runnerProfileFromForm(profile),
+      difficulty: profile.difficulty,
+      demoMode,
+    }),
+    [demoMode, profile],
   );
-  const runProgress = ((sceneIndex + (1 - sceneTime / scene.duration)) / runScenes.length) * 100;
+  const activeStoryState = storyState ?? previewState;
+  const scene = getCurrentScene(activeStoryState);
+  const sceneIndex = Math.max(0, scene.intervalNumber - 1);
+  const distance = tracking.distanceMeters / 1_000;
+  const elapsed = Math.round(tracking.elapsedMs / 1_000);
+  const threatDistance = threatDistanceFor(activeStoryState);
+  const completedMovement = Math.max(0, scene.intervalNumber - 1);
+  const decisionModel = getDecisionModel(activeStoryState);
+  const endingModel = getEndingModel(activeStoryState);
+  const summaryModel = getSummaryModel(activeStoryState);
+  const averagePace = distance > 0.01 && elapsed > 0 ? elapsed / distance : null;
+  const runProgress = Math.min(
+    100,
+    ((completedMovement + (1 - sceneTime / Math.max(1, scene.durationSeconds))) /
+      scene.totalMovementScenes) * 100,
+  );
 
   useEffect(() => {
     if (stage === "landing") return;
@@ -144,19 +150,25 @@ export default function CliffhangerApp({
   useEffect(() => {
     if (stage !== "run" || paused || spectator) return;
     const timer = window.setInterval(() => {
-      setElapsed((value) => value + 1);
-      setDistance((value) => Number((value + 0.0034).toFixed(3)));
-      setSceneTime((current) => Math.max(0, current - 1));
+      const decrement = demoMode ? Math.max(1, Math.round(demoTimeScale / 2)) : 1;
+      setSceneTime((current) => Math.max(0, current - decrement));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [stage, paused, spectator]);
+  }, [demoMode, demoTimeScale, paused, spectator, stage]);
 
-  const recentEvent = useMemo(() => {
-    if (result === "strong") return "Shortcut unlocked · extra survivor found";
-    if (result === "near") return "Radio dropped · swarm gained 12m";
-    if (result === "miss") return "Route blocked · story redirected safely";
-    return "Interval held · route remains clear";
-  }, [result]);
+  useEffect(() => {
+    if (!storyState) return;
+    void prefetchNarration(narrationPrefetchLines(storyState));
+    setAudioMix({
+      intensity: scene.musicIntensity,
+      performance: result === "strong" ? 0.8 : result === "miss" ? -0.7 : result === "near" ? -0.25 : 0.25,
+    });
+  }, [prefetchNarration, result, scene.musicIntensity, setAudioMix, storyState]);
+
+  const recentEvent = useMemo(
+    () => latestPerformanceResponse(activeStoryState),
+    [activeStoryState],
+  );
 
   const goTo = (next: Stage) => {
     setStage(next);
@@ -207,40 +219,137 @@ export default function CliffhangerApp({
     if (audioState === "idle") setAudioState("fallback");
     if (motionState === "idle") setMotionState("fallback");
     setCalibrationTime(12);
+    tracking.start();
     goTo("calibration");
   };
 
   const startRun = () => {
-    setSceneIndex(0);
-    setSceneTime(runScenes[0].duration);
-    setElapsed(0);
-    setDistance(0);
+    const nextState = createReadyRunState({
+      profile: runnerProfileFromForm(profile),
+      difficulty: profile.difficulty,
+      demoMode,
+    });
+    const nextScene = getCurrentScene(nextState);
+    setStoryState(nextState);
+    setSceneTime(nextScene.durationSeconds);
+    setChoice(null);
     setPaused(false);
+    tracking.reset();
+    tracking.start();
+    sceneStartRef.current = { distanceMeters: 0, elapsedMs: 0 };
+    void audioMix.start();
+    void wakeLock.request();
+    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
     goTo("run");
   };
 
   const advanceScene = () => {
-    if (sceneIndex === 2 && !choice) {
+    if (!storyState) return;
+    if (storyState.currentNodeId === "final_choice") {
       goTo("choice");
       return;
     }
-    if (sceneIndex >= runScenes.length - 1) {
-      goTo("ending");
-      return;
+    const segmentDistance = Math.max(
+      0,
+      tracking.distanceMeters - sceneStartRef.current.distanceMeters,
+    );
+    const segmentElapsed = Math.max(
+      1,
+      (tracking.elapsedMs - sceneStartRef.current.elapsedMs) / 1_000,
+    );
+    if (!scene.isHighIntensity && tracking.speedMps > 0.6) {
+      baselineSpeedRef.current = tracking.speedMps;
     }
-    const next = sceneIndex + 1;
-    setSceneIndex(next);
-    setSceneTime(runScenes[next].duration);
+    const performance = !demoMode && scene.isHighIntensity
+      ? livePerformance(storyState, {
+          baselineSpeedMps: baselineSpeedRef.current,
+          distanceMeters: segmentDistance,
+          durationSeconds: segmentElapsed,
+          speedMps: tracking.speedMps,
+        })
+      : undefined;
+    const nextState = advanceRun({
+      state: storyState,
+      result,
+      performance,
+      elapsedSeconds: Math.min(scene.durationSeconds, Math.round(segmentElapsed)),
+    });
+    const nextScene = getCurrentScene(nextState);
+    setStoryState(nextState);
+    setSceneTime(nextScene.durationSeconds);
+    sceneStartRef.current = {
+      distanceMeters: tracking.distanceMeters,
+      elapsedMs: tracking.elapsedMs,
+    };
+    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
+    if (nextState.currentNodeId === "final_choice") goTo("choice");
+    else if (nextState.currentNodeId.startsWith("ending_")) {
+      tracking.stop();
+      void audioMix.pause();
+      void wakeLock.release();
+      goTo("ending");
+    } else if (nextState.currentNodeId === "summary") {
+      tracking.stop();
+      void audioMix.stop();
+      narration.cancel();
+      void wakeLock.release();
+      goTo("summary");
+    } else goTo("run");
   };
 
-  const selectChoice = (nextChoice: "roof" | "tunnel") => {
+  const selectChoice = (nextChoice: "rescue_together" | "signal_escape") => {
+    if (!storyState) return;
+    const nextState = chooseRoute(storyState, nextChoice);
+    const nextScene = getCurrentScene(nextState);
     setChoice(nextChoice);
-    setResult(nextChoice === "roof" ? "strong" : "success");
-    const next = Math.min(3, runScenes.length - 1);
-    setSceneIndex(next);
-    setSceneTime(runScenes[next].duration);
+    setStoryState(nextState);
+    setSceneTime(nextScene.durationSeconds);
+    sceneStartRef.current = {
+      distanceMeters: tracking.distanceMeters,
+      elapsedMs: tracking.elapsedMs,
+    };
+    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
     goTo("run");
   };
+
+  const pauseRun = () => {
+    setPaused(true);
+    tracking.pause();
+    void audioMix.pause();
+    narration.cancel();
+    void wakeLock.release();
+  };
+
+  const resumeRun = () => {
+    setPaused(false);
+    tracking.resume();
+    void audioMix.resume();
+    void wakeLock.request();
+  };
+
+  const endSafely = () => {
+    if (!storyState) return;
+    let safeState = storyState;
+    for (let guard = 0; guard < 14 && !safeState.currentNodeId.startsWith("ending_"); guard += 1) {
+      safeState = safeState.currentNodeId === "final_choice"
+        ? chooseRoute(safeState, choice ?? "rescue_together")
+        : advanceRun({ state: safeState, result: "miss" });
+    }
+    setResult("miss");
+    setStoryState(safeState);
+    setPaused(false);
+    tracking.stop();
+    void audioMix.pause();
+    narration.cancel();
+    void wakeLock.release();
+    goTo("ending");
+  };
+
+  useEffect(() => {
+    if (stage !== "run" || sceneTime > 0 || paused || spectator) return;
+    const timer = window.setTimeout(advanceScene, 0);
+    return () => window.clearTimeout(timer);
+  });
 
   if (stage === "landing") {
     return <ScrollLockedVideoHero onContinue={() => goTo("profile")} />;
@@ -250,6 +359,7 @@ export default function CliffhangerApp({
     return (
       <SpectatorView
         scene={scene}
+        sceneIndex={sceneIndex}
         sceneTime={sceneTime}
         profile={profile}
         distance={distance}
@@ -425,7 +535,7 @@ export default function CliffhangerApp({
             <p>“{profile.savee} is trapped beyond the bridge. The shelter doors close in ten minutes.”</p>
           </div>
           <div className="briefing-stats">
-            <span><b>10:00</b> episode</span><span><b>3</b> pushes</span><span><b>2+</b> endings</span>
+            <span><b>{difficultyCopy[profile.difficulty].time}</b> episode</span><span><b>3</b> pushes</span><span><b>3</b> endings</span>
           </div>
           <div className="safety-note"><ShieldIcon /><span><strong>Your body, your call.</strong> Slow down or end safely at any time. The story always continues.</span></div>
           <button className="primary-action primary-action--danger" onClick={startRun}>
@@ -447,22 +557,22 @@ export default function CliffhangerApp({
           <div className="run-progress" aria-label={`${Math.round(runProgress)} percent through episode`}><i style={{ width: `${runProgress}%` }} /></div>
 
           <div className="run-primary">
-            <p className="eyebrow">INTERVAL {sceneIndex + 1} · {scene.label}</p>
+            <p className="eyebrow">INTERVAL {scene.intervalNumber} · {scene.label}</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>{scene.instruction}</h1>
             <div className="run-countdown" aria-live="polite">{formatTime(sceneTime)}</div>
-            <div className="target-line"><i /> {scene.instruction === "RECOVER" ? "Breathe. Keep moving." : "Hold above your baseline"}</div>
+            <div className="target-line"><i /> {scene.cue}</div>
           </div>
 
           <div className="story-transmission">
             <div className="waveform" aria-hidden="true">
               {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--wave": `${18 + ((index * 23) % 70)}%` } as React.CSSProperties} />)}
             </div>
-            <blockquote>“{scene.story(profile.savee)}”</blockquote>
-            <span>CONTROL · LIVE TRANSMISSION</span>
+            <blockquote>“{scene.story}”</blockquote>
+            <span>CONTROL · {narration.source === "elevenlabs" ? "YOWZ RADIO" : narration.source === "browser" ? "DEVICE VOICE FALLBACK" : "LIVE TRANSMISSION"}</span>
           </div>
 
           <div className="run-metrics">
-            <Metric label="PACE" value={scene.pace} unit="/KM" />
+            <Metric label="PACE" value={paceLabel(tracking.paceSecondsPerKm)} unit="/KM" />
             <Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" />
             <div className="threat-metric">
               <div><span>THREAT</span><strong>{threatDistance}<small>M</small></strong></div>
@@ -472,7 +582,7 @@ export default function CliffhangerApp({
           </div>
 
           <div className="run-actions">
-            <button className="pause-button" onClick={() => setPaused(true)}><PauseIcon /> PAUSE / END</button>
+            <button className="pause-button" onClick={pauseRun}><PauseIcon /> PAUSE / END</button>
             <button className="spectator-button" onClick={() => setSpectator(true)}><ScreenIcon /> SPECTATOR</button>
           </div>
 
@@ -484,8 +594,23 @@ export default function CliffhangerApp({
                   <button key={item} className={result === item ? "is-active" : ""} onClick={() => setResult(item)}>{item === "near" ? "Near miss" : item}</button>
                 ))}
               </div>
+              <div className="demo-results" aria-label="Simulated pace">
+                {(["still", "easy", "sprint"] as DemoPace[]).map((item) => (
+                  <button key={item} className={demoPace === item ? "is-active" : ""} onClick={() => setDemoPace(item)}>{item} pace</button>
+                ))}
+              </div>
+              <div className="demo-results" aria-label="Simulated GPS condition">
+                {(["available", "noisy", "unavailable"] as DemoGpsCondition[]).map((item) => (
+                  <button key={item} className={demoGps === item ? "is-active" : ""} onClick={() => setDemoGps(item)}>GPS {item}</button>
+                ))}
+              </div>
+              <div className="demo-results" aria-label="Narration source">
+                <button className={!forceBrowserVoice ? "is-active" : ""} onClick={() => setForceBrowserVoice(false)}>Yowz radio</button>
+                <button className={forceBrowserVoice ? "is-active" : ""} onClick={() => setForceBrowserVoice(true)}>Browser fallback</button>
+                <button onClick={() => setDemoTimeScale((value) => value >= 20 ? 1 : value + 4)}>{demoTimeScale}× time</button>
+              </div>
               <p>{recentEvent}</p>
-              <button className="secondary-action" onClick={advanceScene}>{sceneIndex >= runScenes.length - 1 ? "Trigger ending" : sceneIndex === 2 && !choice ? "Trigger decision" : "Advance scene"}</button>
+              <button className="secondary-action" onClick={advanceScene}>{scene.id === "cooldown" ? "Complete episode" : scene.id.startsWith("final_sprint") ? "Resolve ending" : scene.id === "final_choice" ? "Trigger decision" : "Advance story node"}</button>
             </aside>
           )}
 
@@ -495,8 +620,8 @@ export default function CliffhangerApp({
                 <p className="eyebrow safe">WORKOUT PAUSED</p>
                 <h2 id="pause-title">Take the time you need.</h2>
                 <p>The swarm can wait. Your safety can’t.</p>
-                <button className="primary-action" onClick={() => setPaused(false)}><span>Resume safely</span><PlayIcon /></button>
-                <button className="end-action" onClick={() => { setPaused(false); goTo("ending"); }}>End run & hear my ending</button>
+                <button className="primary-action" onClick={resumeRun}><span>Resume safely</span><PlayIcon /></button>
+                <button className="end-action" onClick={endSafely}>End run & hear my safe ending</button>
               </div>
             </div>
           )}
@@ -509,15 +634,16 @@ export default function CliffhangerApp({
           <div className="choice-copy">
             <p className="eyebrow danger">ROUTE COLLAPSED</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>You choose the next move.</h1>
-            <p>“I’ve got one flare. Roof is exposed. Tunnel is… definitely full of tunnel things.”</p>
+            <p>“{decisionModel?.prompt ?? "Choose the safest route for you."}”</p>
           </div>
           <div className="voice-wave" aria-label="Listening for voice choice"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
-          <p className="listening"><i /> LISTENING · SAY “ROOF” OR “TUNNEL”</p>
+          <p className="listening">VOICE PROMPT · SAY OR TAP A ROUTE</p>
           <div className="route-choices">
-            <button onClick={() => selectChoice("roof")}><span>A</span><div><strong>Take the roof</strong><small>Fast · exposed · shorter</small></div><ArrowIcon /></button>
-            <button onClick={() => selectChoice("tunnel")}><span>B</span><div><strong>Take the tunnel</strong><small>Steady · dark · safer pace</small></div><ArrowIcon /></button>
+            {(decisionModel?.options ?? []).map((option, index) => (
+              <button key={option.id} onClick={() => selectChoice(option.id as "rescue_together" | "signal_escape")}><span>{index === 0 ? "A" : "B"}</span><div><strong>{option.label}</strong><small>{option.description}</small></div><ArrowIcon /></button>
+            ))}
           </div>
-          <button className="text-action" onClick={() => selectChoice("tunnel")}>Can’t speak? Choose the safer route</button>
+          <button className="text-action" onClick={() => selectChoice("signal_escape")}>Can’t speak? Choose the evacuation route</button>
         </section>
       )}
 
@@ -525,13 +651,13 @@ export default function CliffhangerApp({
         <section className={`screen screen--ending ending-${result}`}>
           <div className="ending-light" aria-hidden="true" />
           <div className="ending-copy">
-            <p className="eyebrow safe">EXTRACTION // 06:42</p>
-            <h1 ref={stageTitleRef} tabIndex={-1}>{result === "miss" ? "You found another way." : "You made the light."}</h1>
-            <blockquote>“{profile.savee} grabs your hand as the gates close. ‘Next time, I’m picking the route.’”</blockquote>
-            <p>{result === "strong" ? "Your final push saved the medic too. That choice will carry into the next episode." : "You reached them. The radio was lost, but the story is far from over."}</p>
+            <p className="eyebrow safe">EXTRACTION // {formatElapsed(Math.round(summaryModel.elapsedSeconds))}</p>
+            <h1 ref={stageTitleRef} tabIndex={-1}>{endingModel.title}</h1>
+            <blockquote>“{endingModel.story}”</blockquote>
+            <p>{summaryModel.encouragement}</p>
           </div>
           <div className="ending-badge"><i>✓</i><span><strong>{result === "strong" ? "STRONG EXTRACTION" : "EXTRACTION COMPLETE"}</strong><small>STORY CONTINUES · EPISODE 02 UNLOCKED</small></span></div>
-          <button className="primary-action" onClick={() => goTo("summary")}><span>See my run</span><ArrowIcon /></button>
+          <button className="primary-action" onClick={advanceScene}><span>Begin safe cooldown</span><ArrowIcon /></button>
         </section>
       )}
 
@@ -539,24 +665,24 @@ export default function CliffhangerApp({
         <section className="screen screen--summary">
           <div className="summary-heading">
             <p className="eyebrow safe">EPISODE COMPLETE</p>
-            <h1 ref={stageTitleRef} tabIndex={-1}>You changed the ending.</h1>
-            <p>{episodeTitle} · Route {choice === "roof" ? "Rooftop" : "Underground"}</p>
+            <h1 ref={stageTitleRef} tabIndex={-1}>{summaryModel.outcomeTitle}</h1>
+            <p>{episodeTitle} · {summaryModel.outcomeText}</p>
           </div>
-          <div className="summary-hero-stat"><strong>{formatElapsed(Math.max(402, elapsed))}</strong><span>STORY TIME</span></div>
+          <div className="summary-hero-stat"><strong>{formatElapsed(Math.round(summaryModel.elapsedSeconds))}</strong><span>STORY TIME</span></div>
           <div className="summary-grid">
-            <Metric label="DISTANCE" value={Math.max(1.42, distance).toFixed(2)} unit="KM" />
-            <Metric label="AVG PACE" value="5:41" unit="/KM" />
+            <Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" />
+            <Metric label="AVG PACE" value={paceLabel(averagePace)} unit="/KM" />
             <Metric label="THREAT GAP" value={`+${threatDistance}`} unit="M" />
-            <Metric label="STORY SCORE" value={result === "strong" ? "92" : "84"} unit="%" />
+            <Metric label="STORY SCORE" value={String(Math.round(summaryModel.averageScore ?? 0))} unit="%" />
           </div>
           <div className="interval-report">
-            <div><span>INTERVAL PERFORMANCE</span><strong>3 / 3 survived</strong></div>
-            {[92, 78, result === "miss" ? 54 : 88].map((value, index) => (
+            <div><span>INTERVAL PERFORMANCE</span><strong>{summaryModel.completedIntervals} / 3 completed</strong></div>
+            {(activeStoryState.scores.length ? activeStoryState.scores : [0, 0, 0]).map((value, index) => (
               <div className="interval-row" key={index}><span>0{index + 1}</span><i><b style={{ width: `${value}%` }} /></i><em>{value >= 85 ? "STRONG" : value >= 70 ? "HELD" : "STORY SHIFT"}</em></div>
             ))}
           </div>
-          <div className="story-impact"><span>YOUR STORY IMPACT</span><p>{recentEvent}. {profile.savee} remembers your {choice === "roof" ? "reckless rooftop shortcut" : "very sensible tunnel choice"}.</p></div>
-          <button className="primary-action" onClick={() => { setChoice(null); goTo("briefing"); }}><span>Run it differently</span><RestartIcon /></button>
+          <div className="story-impact"><span>YOUR STORY IMPACT</span><p>{summaryModel.encouragement} {profile.savee} remembers your {choice === "rescue_together" ? "decision to go back together" : "signal from the rooftop"}.</p></div>
+          <button className="primary-action" onClick={() => { setChoice(null); setStoryState(null); tracking.reset(); goTo("briefing"); }}><span>Run it differently</span><RestartIcon /></button>
           <button className="text-action" onClick={() => goTo("landing")}>Return to title</button>
         </section>
       )}
@@ -599,22 +725,22 @@ function Metric({ label, value, unit }: { label: string; value: string; unit: st
   return <div className="metric"><span>{label}</span><strong>{value}<small>{unit}</small></strong></div>;
 }
 
-function SpectatorView({ scene, sceneTime, profile, distance, threatDistance, recentEvent, onExit, headingRef }: { scene: RunScene; sceneTime: number; profile: Profile; distance: number; threatDistance: number; recentEvent: string; onExit: () => void; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
+function SpectatorView({ scene, sceneIndex, sceneTime, profile, distance, threatDistance, recentEvent, onExit, headingRef }: { scene: StorySceneModel; sceneIndex: number; sceneTime: number; profile: Profile; distance: number; threatDistance: number; recentEvent: string; onExit: () => void; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
   return (
     <main className="spectator-view">
       <AmbientChrome />
       <header><div className="wordmark">CLIFF<span>HANGER</span></div><p>Interactive stories control the workout. The workout controls the ending.</p><div className="live-mark"><i /> RUNNER LIVE</div></header>
       <section className="spectator-stage">
         <div className="spectator-scene">
-          <p className="eyebrow danger">SCENE 06 // {scene.label.toUpperCase()}</p>
+          <p className="eyebrow danger">SCENE {String(sceneIndex + 1).padStart(2, "0")} · {scene.label.toUpperCase()}</p>
           <h1 ref={headingRef} tabIndex={-1}>{scene.instruction}</h1>
           <div className="spectator-time">{formatTime(sceneTime)}</div>
-          <blockquote>“{scene.story(profile.savee)}”</blockquote>
+          <blockquote>“{scene.story}”</blockquote>
           <div className="spectator-wave" aria-hidden="true">{Array.from({ length: 36 }, (_, index) => <i key={index} style={{ height: `${14 + ((index * 31) % 72)}%` }} />)}</div>
         </div>
         <aside className="spectator-data">
-          <div className="spectator-runner"><span>RUNNER</span><strong>Joon</strong><small>RUNNING TO {profile.savee.toUpperCase()}</small></div>
-          <div className="spectator-metrics"><Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" /><Metric label="INTERVAL" value="03" unit="/ 05" /></div>
+          <div className="spectator-runner"><span>RUNNER</span><strong>Runner 01</strong><small>RUNNING TO {profile.savee.toUpperCase()}</small></div>
+          <div className="spectator-metrics"><Metric label="DISTANCE" value={distance.toFixed(2)} unit="KM" /><Metric label="INTERVAL" value={String(scene.intervalNumber).padStart(2, "0")} unit={`/ ${String(scene.totalMovementScenes).padStart(2, "0")}`} /></div>
           <div className="spectator-threat"><span>SWARM DISTANCE</span><strong>{threatDistance}<small> METRES</small></strong><i><b style={{ width: `${Math.min(90, threatDistance / 1.7)}%` }} /></i></div>
           <div className="event-log"><span>RECENT STORY EVENT</span><p>{recentEvent}</p></div>
         </aside>

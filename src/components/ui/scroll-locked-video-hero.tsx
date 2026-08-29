@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
 } from "react";
+import Image from "next/image";
 
-const DEFAULT_VIDEO =
-  "https://raw.githubusercontent.com/gughigug/metro-hero-assets/main/Subway_doors_open_to_city_202608242331.mp4";
+const DEFAULT_VIDEO = "/cliffhanger-intro.mp4";
 
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, value));
@@ -276,6 +276,7 @@ export default function ScrollLockedVideoHero({
     video.addEventListener("canplay", onLoaded, { once: true });
     video.addEventListener("error", onFailure);
     video.addEventListener("seeked", onSeeked);
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onLoaded();
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -323,8 +324,14 @@ export default function ScrollLockedVideoHero({
       />
 
       <div className="cinematic-hero__fallback" aria-hidden="true">
-        <div className="cinematic-hero__moon" />
-        <div className="cinematic-hero__city" />
+        <Image
+          className="cinematic-hero__poster"
+          src="/images/cliffhanger-hero-v2.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+        />
       </div>
       <div className="cinematic-hero__wash" aria-hidden="true" />
       <div className="noise-layer" aria-hidden="true" />

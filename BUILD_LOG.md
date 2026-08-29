@@ -13,7 +13,7 @@
 - The first episode targets a condensed hackathon demo while preserving the shape of an 8–12 minute real run.
 - Demo mode is explicitly labelled and can accelerate intervals without changing story logic.
 - Missing GPS, motion access, or ElevenLabs must never block the complete experience.
-- The repository has no configured remote; stable milestones will be committed locally until a remote exists.
+- Stable milestones are pushed to the private `snowcodeer/FableRun` remote and deployed to the canonical Vercel alias.
 
 ## Major decisions
 
@@ -33,12 +33,25 @@
 ## Completed milestones
 
 - Repository and environment audit completed.
+- Next.js 16 mobile application scaffold and cinematic design system completed.
+- Deterministic 575-second real / 102-second demo story graph implemented and validated.
+- GPS-derived tracking, deterministic simulation, adaptive Web Audio, wake lock, and server-only narration route implemented.
+- Landing, personalisation, permissions, calibration, live HUD, choice, endings, summary, demo controls, and spectator surfaces implemented.
+- Scroll-scrub zombie reveal adapted with safe body-style restoration and accessible escape paths.
+- Private Git remote configured at `snowcodeer/FableRun`; `main` is pushed.
+- Vercel project configured with explicit Next.js preset; `https://fablerun.vercel.app` is live and externally returns HTTP 200.
+- ElevenLabs key is present locally and as an encrypted Vercel Production variable; its value has not been read, logged, or committed.
+- Original zombie chase artwork and a bundled 8-second intro video now anchor the scroll reveal without a third-party media dependency.
+- The interface is wired to the canonical story controller, tracking, adaptive audio, wake lock, and narration hooks; the temporary five-scene adapter has been removed.
+- Local mobile E2E proved personalisation, strong rescue and miss/survival branches, cooldown/summary, pause/resume, early safe ending, and zero browser console errors.
+- Local narration evidence proved configured server-side ElevenLabs audio and an in-memory cache miss followed by a hit.
 
 ## Known limitations
 
-- No Git remote is configured, so pushes are currently impossible.
-- ElevenLabs availability is unknown; browser speech synthesis is the guaranteed baseline.
+- Live outdoor GPS behavior still requires a physical run; automated QA covers deterministic GPS available/noisy/unavailable states and the shared derived-metrics contract.
+- Native speech playback policies vary by browser, so the UI reports whether ElevenLabs or the device fallback is active and never blocks a run.
+- Production acceptance must be repeated after each stable deployment because build success alone is not runtime proof.
 
 ## Next highest-priority task
 
-- Scaffold the mobile-first experience and establish isolated agent ownership boundaries.
+- Deploy this integrated milestone, verify the canonical alias and production narration headers, and capture the complete production mobile acceptance journey.

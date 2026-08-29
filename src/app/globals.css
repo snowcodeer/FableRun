@@ -87,37 +87,27 @@ svg { display: block; }
 .cinematic-hero__fallback,
 .cinematic-hero__wash { position: absolute; inset: 0; width: 100%; height: 100%; }
 .cinematic-hero__video {
-  z-index: -4;
+  z-index: -3;
   object-fit: cover;
   opacity: 0;
-  filter: saturate(.42) contrast(1.22) brightness(.62);
+  filter: saturate(.28) contrast(1.25) brightness(.68);
+  mix-blend-mode: screen;
   transform-origin: center;
   transition: opacity .7s ease;
 }
-.cinematic-hero__video.is-ready { opacity: 1; }
+.cinematic-hero__video.is-ready { opacity: .34; }
 .cinematic-hero__fallback {
-  z-index: -5;
+  z-index: -4;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 68% 25%, rgba(255, 73, 43, .2), transparent 20%),
-    linear-gradient(150deg, #181613 0%, #050607 58%);
+  background: #030506;
 }
-.cinematic-hero__moon {
-  position: absolute; width: 32vw; height: 32vw; max-width: 280px; max-height: 280px;
-  border-radius: 50%; right: 8%; top: 13%; filter: blur(1px);
-  background: radial-gradient(circle at 43% 43%, #ffb78f, #d53620 52%, rgba(138, 18, 9, 0) 70%);
-  opacity: .72;
-}
-.cinematic-hero__city {
-  position: absolute; left: -3%; right: -3%; bottom: -4%; height: 54%; opacity: .85;
-  clip-path: polygon(0 100%,0 61%,7% 61%,7% 30%,15% 30%,15% 53%,21% 53%,21% 13%,29% 13%,29% 58%,35% 58%,35% 38%,42% 38%,42% 3%,49% 3%,49% 63%,58% 63%,58% 23%,65% 23%,65% 55%,73% 55%,73% 17%,80% 17%,80% 49%,87% 49%,87% 8%,94% 8%,94% 57%,100% 57%,100% 100%);
-  background: linear-gradient(180deg, #15191b 0%, #030405 88%);
-}
+.cinematic-hero__poster { object-fit: cover; object-position: center center; filter: saturate(.82) contrast(1.08) brightness(.84); transform: scale(1.015); }
 .cinematic-hero__wash {
   z-index: -2;
   background:
-    linear-gradient(90deg, rgba(2, 3, 3, .78), transparent 45%, rgba(2, 3, 3, .34)),
-    linear-gradient(180deg, rgba(2, 3, 3, .6), transparent 22%, transparent 60%, #020303 100%),
+    linear-gradient(90deg, rgba(2, 3, 3, .42), transparent 45%, rgba(2, 3, 3, .28)),
+    linear-gradient(180deg, rgba(2, 3, 3, .42), transparent 22%, transparent 61%, #020303 100%),
+    radial-gradient(circle at 55% 61%, rgba(255, 50, 36, .16), transparent 35%),
     radial-gradient(circle at 50% 60%, transparent 10%, rgba(1, 2, 2, .46) 90%);
 }
 .fog-layer { position: absolute; z-index: -1; width: 160%; height: 42%; left: -30%; pointer-events: none; filter: blur(34px); opacity: .24; background: radial-gradient(ellipse, rgba(179, 190, 183, .42), transparent 65%); }
@@ -290,4 +280,15 @@ svg { display: block; }
 @media (prefers-reduced-motion: reduce) {
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .cinematic-hero__tagline{opacity:1!important;filter:none!important;transform:none!important}.cinematic-hero__title-wrap{opacity:0!important}.cinematic-hero__progress{transform:scaleX(1)!important}
+}
+
+.spectator-threat strong {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.spectator-threat strong small {
+  margin: 0;
+  letter-spacing: .04em;
 }
