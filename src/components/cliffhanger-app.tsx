@@ -41,6 +41,8 @@ type Relationship = "Partner" | "Friend" | "Sibling" | "Parent";
 type PermissionState = "idle" | "ready" | "fallback";
 type RunResult = DemoIntervalResult;
 
+const AUDIO_TEST_LINE = "Control here. Comms are online. Keep moving.";
+
 interface Profile {
   savee: string;
   relationship: Relationship;
@@ -157,13 +159,21 @@ export default function CliffhangerApp({
   }, [demoMode, demoTimeScale, paused, spectator, stage]);
 
   useEffect(() => {
+    if (stage === "permissions") {
+      void prefetchNarration([AUDIO_TEST_LINE]);
+    }
+  }, [prefetchNarration, stage]);
+
+  useEffect(() => {
+    if (stage === "briefing" || storyState) {
+      void prefetchNarration(narrationPrefetchLines(activeStoryState));
+    }
     if (!storyState) return;
-    void prefetchNarration(narrationPrefetchLines(storyState));
     setAudioMix({
       intensity: scene.musicIntensity,
       performance: result === "strong" ? 0.8 : result === "miss" ? -0.7 : result === "near" ? -0.25 : 0.25,
     });
-  }, [prefetchNarration, result, scene.musicIntensity, setAudioMix, storyState]);
+  }, [activeStoryState, prefetchNarration, result, scene.musicIntensity, setAudioMix, stage, storyState]);
 
   const recentEvent = useMemo(
     () => latestPerformanceResponse(activeStoryState),
@@ -200,15 +210,11 @@ export default function CliffhangerApp({
     );
   };
 
-  const enableAudio = () => {
+  const enableAudio = async () => {
     try {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance("Comms online.");
-        utterance.volume = 0.3;
-        window.speechSynthesis.speak(utterance);
-        setAudioState("ready");
-      } else setAudioState("fallback");
+      await audioMix.start();
+      const test = await narration.speak(AUDIO_TEST_LINE, { preferRemote: true });
+      setAudioState(test.source === "elevenlabs" ? "ready" : "fallback");
     } catch {
       setAudioState("fallback");
     }
@@ -568,7 +574,7 @@ export default function CliffhangerApp({
               {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--wave": `${18 + ((index * 23) % 70)}%` } as React.CSSProperties} />)}
             </div>
             <blockquote>“{scene.story}”</blockquote>
-            <span>CONTROL · {narration.source === "elevenlabs" ? "YOWZ RADIO" : narration.source === "browser" ? "DEVICE VOICE FALLBACK" : "LIVE TRANSMISSION"}</span>
+            <span>CONTROL · {narration.source === "elevenlabs" ? "GEORGE RADIO" : narration.source === "browser" ? "DEVICE VOICE FALLBACK" : "LIVE TRANSMISSION"}</span>
           </div>
 
           <div className="run-metrics">
