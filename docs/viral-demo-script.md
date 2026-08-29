@@ -1,4 +1,4 @@
-# FableRun two-minute viral demo
+# FableRun two-minute viral demo — finished cut
 
 ## The idea
 
@@ -12,23 +12,23 @@ A vertical run that plays completely in-world. You never explain the product or 
 
 **Signup page and QR target:** `/waitlist`
 
-## Spoken script and shot list
+## Final edit script and shot list
 
-| Time | Picture / sound | Live dialogue |
+| Time | Picture / sound | Dialogue in the finished cut |
 | --- | --- | --- |
-| 0:00–0:04 | Close selfie shot, already running. FableRun shows `RUN STARTED`. Keep the music barely audible. | **YOU:** “I’m at London’s first running hackathon! Joon, keep up! We need to win!” |
-| 0:04–0:11 | Swing the camera just enough to reveal Joon behind you. The HUD adds `COMPANION CONNECTED`. | **JOON, behind you:** “I’m right here! Why are you sprinting already?” **YOU:** “Because I’m not losing!” |
-| 0:11–0:13 | A loud emergency siren cuts across everything. Both of you react. The apocalypse layer appears behind the real footage. No dialogue. | **SIREN ONLY** |
-| 0:13–0:18 | The score ducks. `RUN FASTER` flashes red. The configured narrator voice enters suddenly and cleanly. | **NARRATOR:** “London just fell—and there are zombies forty-two metres behind you.” |
-| 0:18–0:32 | Hard switch to the pursuit score. Horde, distance and pace appear in the HUD. Keep running; do not look at the audience. | **YOU, to Joon:** “Joon—run!” **JOON:** “I am running!” **NARRATOR:** “Pursuit distance: thirty-one metres.” |
-| 0:32–0:45 | Your pace dips. The score tightens and the HUD flashes `THREAT +12M`. Joon slips farther behind. | **NARRATOR:** “Pace below target. The horde is closing.” **JOON:** “Wait—my leg’s gone.” **YOU:** “Don’t stop. Stay with me.” |
-| 0:45–0:59 | FableRun opens `GO BACK?` with two buttons and a live microphone. You answer aloud without touching either button. | **NARRATOR:** “Companion pace critical. Continue to safety—or go back.” **YOU:** “I’m going back. Keep talking to me, Joon.” |
-| 0:59–1:13 | The HUD confirms `ROUTE REVERSED`. Turn around in the footage as the story rewrites the run. | **NARRATOR:** “Choice accepted. Route reversed. Sprint for twenty seconds.” **JOON:** “You idiot—don’t come back!” **YOU:** “Too late.” |
-| 1:13–1:28 | Accelerate. The companion distance falls from 24m to 8m. Joon’s own voice comes through separately from the narrator. | **JOON:** “They’re right behind me!” **NARRATOR:** “Sixteen metres… twelve… eight.” **YOU:** “I can see you. Keep moving!” |
-| 1:28–1:41 | The horde reaches Joon. Cut his sentence off with impact, static and zombie noise; avoid a graphic visual. His marker collapses and the score drops out. | **JOON:** “Don’t stop. Just—” **STATIC / HORDE** **YOU:** “Joon? Joon!” **NARRATOR:** “Companion signal lost. No pulse detected.” |
-| 1:41–1:52 | One beat of silence, then the pursuit score slams back in. You turn and sprint alone. HUD: `400M LEFT`. | **NARRATOR:** “Final interval. Four hundred metres. Pursuit distance: twelve metres.” **YOU:** breathing only; no explanation. |
-| 1:52–1:56 | Stop, breathless. FableRun shows `NEW PB` and the music falls away. | **NARRATOR:** “Run complete. New personal best.” |
-| 1:56–2:00 | Hold the QR code completely still with `fablerun.vercel.app/waitlist` directly beneath it. | **NARRATOR:** “Join FableRun now.” |
+| 0:00–0:11 | Start mid-run on the first selfie take. The clean FableRun HUD shows `RUN STARTED`, then `JOON CONNECTED`. Calm pulse sits beneath the real location audio. | **YOU:** “I’m at London’s first running hackathon. Joon, keep up!” **JOON, behind you:** “I’m right here. Why are you sprinting already?” **YOU:** “Because we need to win!” |
+| 0:11–0:13 | A loud two-tone emergency siren interrupts the run. The screen changes to the red apocalypse state and flashes `RUN FASTER`. | **SIREN ONLY** |
+| 0:13–0:17.5 | The score ducks beneath the configured ElevenLabs narrator. The horde silhouettes, threat bar and distance appear over the live footage. | **NARRATOR:** “London just fell—and there are zombies forty-two metres behind you.” |
+| 0:17.5–0:34.5 | Cut to the second running take. The pursuit score starts and the HUD closes from 42m to 31m. | **YOU:** “Joon—run!” **JOON:** “I am running!” **JOON:** “Wait, my leg’s gone!” **YOU:** “Keep going. Don’t stop!” **NARRATOR:** “Pursuit distance: thirty-one metres.” |
+| 0:34.5–0:44.3 | The pace panel warns `THREAT +12M`. The edit keeps the live run breath and uses the next take without presenter dialogue. | **YOU:** “Don’t stop. Stay with me, Joon!” **NARRATOR:** “Pace below target. The horde is closing.” **YOU:** “I’m coming back for you!” |
+| 0:44.3–0:48.3 | A reframed running insert creates space for FableRun’s voice decision. The app shows a live waveform plus the two fallback buttons. | **NARRATOR:** “Companion pace critical. Continue to safety—or go back.” |
+| 0:48.3–0:55.9 | Return to the synced choice take. The runner answers aloud without touching the buttons. | **YOU:** “Wait, I’m going back. Keep talking to me, Joon.” **JOON:** “You idiot—don’t come back!” **YOU:** “Too late!” |
+| 0:55.9–1:01.9 | The HUD confirms `ROUTE REVERSED`. | **YOU:** “I can see you. Keep moving.” |
+| 1:01.9–1:11.9 | The rescue state tightens to `8M AWAY`; Joon remains a separate off-camera character voice rather than the narrator. | **YOU:** “I can see you. Keep moving. Joon! Joon!” |
+| 1:11.9–1:19 | Joon’s captured line is cut off by impact and radio static. The music falls into a deliberate vacuum and the app changes to `SIGNAL LOST`. | **JOON:** “Don’t stop. Just—” **STATIC / IMPACT** **NARRATOR:** “Companion signal lost. No pulse detected.” |
+| 1:19–1:27.2 | Reframed running inserts rebuild momentum. The three-stage score shifts into its fastest pursuit state. | **NARRATOR:** “Final interval. Four hundred metres. Pursuit distance: twelve metres.” |
+| 1:27.2–1:54 | Use the final 26.8-second clip uninterrupted as the climax. The HUD holds `400M LEFT`; the score crescendos while the live breathing remains audible. | **YOU, during the sprint:** “Joon! Joon! We won!” **YOU, after looking around:** “Wait, Joon?” |
+| 1:54–2:00 | Instant hard cut to a motionless black-and-red end card: `JOIN THE RACE.`, large QR, and `fablerun.vercel.app/waitlist`. | **NARRATOR:** “Join FableRun now.” |
 
 ## On-screen text
 
@@ -44,8 +44,7 @@ Keep the overlay to these short app events only:
 - `8M AWAY`
 - `SIGNAL LOST`
 - `400M LEFT`
-- `NEW PB`
-- `RUN THE NEXT EPISODE`
+- `JOIN THE RACE.`
 
 Do not put explanatory presenter text on screen. Social captions can transcribe the live dialogue later, but the FableRun capture itself should look like an actual running app in use.
 
@@ -57,5 +56,14 @@ Do not put explanatory presenter text on screen. Social captions can transcribe 
 - Use three visual modes: face camera, full-screen running footage with HUD, and close app cutaways. Avoid rapid random cuts.
 - Keep narrator, Joon and runner voices clearly distinct. No one explains the feature set.
 - Leave a short silence immediately after `SIGNAL LOST`; the empty space sells the loss before the final sprint.
-- Let the narrator deliver “Join FableRun now” as the final spoken line. Hold the QR and printed waitlist link motionless for the full final eight seconds.
+- Let “Wait, Joon?” hang for roughly one second, then hard-cut with no transition to `JOIN THE RACE.`
+- Let the narrator deliver “Join FableRun now” over the still end card. Hold the QR and printed waitlist link motionless until 2:00.
 - Keep the QR large, high-contrast and unobstructed. The same end card includes a native email field for viewers already watching on their phone.
+
+## Finished master
+
+- Local export: `output/demo-edit/FableRun-viral-demo-final.mp4` (ignored by Git)
+- 1080 × 1920, H.264, 30 fps, AAC stereo, exactly 2:00
+- Integrated mix: −14 LUFS; true peak: −1 dBFS
+- QR export check: decodes to `https://fablerun.vercel.app/waitlist`
+- The production app remains unchanged; this edit and `/reel` are demo-only.
