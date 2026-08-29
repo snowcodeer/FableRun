@@ -4,11 +4,16 @@ import type {
   NarrationInvalidResponse,
   NarrationUnavailableReason,
   NarrationUnavailableResponse,
+  NarrationVoiceRole,
 } from "@/lib/platform/narration";
 
 export const runtime = "nodejs";
 
-const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+const DEFAULT_VOICE_IDS: Record<NarrationVoiceRole, string> = {
+  narrator: "JBFqnCBsd6RMkjVDRZzb",
+  character_female: "E4IXevHtHpKGh0bvrPPr",
+  character_male: "L0Dsvb3SLTyegXwtm47J",
+};
 const MAX_TEXT_LENGTH = 800;
 const MAX_REQUEST_BYTES = 4_096;
 const PROVIDER_TIMEOUT_MS = 8_000;
@@ -45,9 +50,20 @@ let narrationCacheBytes = 0;
 interface NarrationRequest {
   text: string;
   voiceId?: string;
+  voice?: NarrationVoiceRole;
 }
 
 type VoiceSource = "configured" | "fallback" | "override";
+
+function isVoiceRole(value: unknown): value is NarrationVoiceRole {
+  return value === "narrator" || value === "character_female" || value === "character_male";
+}
+
+function configuredVoiceId(role: NarrationVoiceRole): string | undefined {
+  if (role === "character_female") return process.env.ELEVENLABS_CHARACTER_FEMALE_VOICE_ID;
+  if (role === "character_male") return process.env.ELEVENLABS_CHARACTER_MALE_VOICE_ID;
+  return process.env.ELEVENLABS_VOICE_ID;
+}
 
 function jsonUnavailable(
   reason: NarrationUnavailableReason,
@@ -88,9 +104,11 @@ function parseRequest(value: unknown): NarrationRequest | null {
   ) {
     return null;
   }
+  if (candidate.voice !== undefined && !isVoiceRole(candidate.voice)) return null;
   return {
     text: candidate.text.trim(),
     voiceId: candidate.voiceId,
+    voice: candidate.voice,
   };
 }
 
@@ -151,6 +169,7 @@ function audioResponse(
   cached: Pick<CachedNarration, "audio" | "contentType">,
   cacheStatus: "hit" | "miss" | "coalesced",
   voiceSource: VoiceSource,
+  voiceRole: NarrationVoiceRole,
 ): Response {
   // Slice so each Response owns an independent, immutable body view.
   const audio = cached.audio.slice(0);
@@ -163,6 +182,7 @@ function audioResponse(
       "x-content-type-options": "nosniff",
       "x-narration-cache": cacheStatus,
       "x-narration-voice": voiceSource,
+      "x-narration-voice-role": voiceRole,
     },
   });
 }
@@ -244,11 +264,12 @@ export async function POST(request: Request): Promise<Response> {
     return jsonInvalid(`Narration text cannot exceed ${MAX_TEXT_LENGTH} characters.`);
   }
 
-  const configuredVoiceId = process.env.ELEVENLABS_VOICE_ID;
-  const voiceId = payload.voiceId ?? configuredVoiceId ?? DEFAULT_VOICE_ID;
+  const voiceRole = payload.voice ?? "narrator";
+  const configuredId = configuredVoiceId(voiceRole);
+  const voiceId = payload.voiceId ?? configuredId ?? DEFAULT_VOICE_IDS[voiceRole];
   const voiceSource: VoiceSource = payload.voiceId
     ? "override"
-    : configuredVoiceId
+    : configuredId
       ? "configured"
       : "fallback";
   if (!VOICE_ID_PATTERN.test(voiceId)) {
@@ -266,7 +287,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const key = narrationKey(payload.text, voiceId);
   const cached = getCachedNarration(key);
-  if (cached) return audioResponse(cached, "hit", voiceSource);
+  if (cached) return audioResponse(cached, "hit", voiceSource, voiceRole);
 
   const existingRequest = inFlightNarrations.get(key);
   const cacheStatus = existingRequest ? "coalesced" : "miss";
@@ -278,7 +299,7 @@ export async function POST(request: Request): Promise<Response> {
     const result = await providerRequest;
     if (result.ok) {
       cacheNarration(key, result.audio, result.contentType);
-      return audioResponse(result, cacheStatus, voiceSource);
+      return audioResponse(result, cacheStatus, voiceSource, voiceRole);
     }
 
     return jsonUnavailable(

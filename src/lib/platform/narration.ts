@@ -24,6 +24,16 @@ export type NarrationStatus =
   | "unavailable"
   | "error";
 
+export type NarrationVoiceRole =
+  | "narrator"
+  | "character_female"
+  | "character_male";
+
+export interface NarrationLine {
+  text: string;
+  voice?: NarrationVoiceRole;
+}
+
 export interface NarrationSpeakOptions {
   /** Prefer ElevenLabs through the server route before browser speech. */
   preferRemote?: boolean;
@@ -33,6 +43,8 @@ export interface NarrationSpeakOptions {
   rate?: number;
   /** 0-2; applied to browser speech synthesis. */
   pitch?: number;
+  /** Server-mapped cast voice; no provider voice ID is exposed to the client. */
+  voice?: NarrationVoiceRole;
 }
 
 export interface NarrationResult {

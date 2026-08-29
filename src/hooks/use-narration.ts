@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
+  NarrationLine,
   NarrationPrefetchResult,
   NarrationResult,
   NarrationSpeakOptions,
   NarrationStatus,
   NarrationUnavailableReason,
   NarrationUnavailableResponse,
+  NarrationVoiceRole,
 } from "@/lib/platform/narration";
 
 export interface UseNarrationResult {
@@ -18,7 +20,7 @@ export interface UseNarrationResult {
   error: string | null;
   speak: (text: string, options?: NarrationSpeakOptions) => Promise<NarrationResult>;
   /** Warm predictable lines without playing them. Audio stays in page memory. */
-  prefetch: (texts: readonly string[]) => Promise<NarrationPrefetchResult>;
+  prefetch: (lines: readonly (string | NarrationLine)[]) => Promise<NarrationPrefetchResult>;
   cancel: () => void;
   setMuted: (muted: boolean) => void;
 }
@@ -31,6 +33,10 @@ interface RemoteNarrationResult {
 const MAX_PREFETCH_LINES = 12;
 const MAX_CLIENT_CACHE_BYTES = 8 * 1_024 * 1_024;
 
+function narrationCacheKey(text: string, voice: NarrationVoiceRole): string {
+  return `${voice}\u0000${text}`;
+}
+
 function normalizeSpeechValue(
   value: number | undefined,
   fallback: number,
@@ -38,6 +44,19 @@ function normalizeSpeechValue(
   maximum: number,
 ): number {
   return Math.min(maximum, Math.max(minimum, value ?? fallback));
+}
+
+function browserVoiceFor(role: NarrationVoiceRole): SpeechSynthesisVoice | undefined {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return undefined;
+  const voices = window.speechSynthesis.getVoices();
+  const preferredNames = role === "character_female"
+    ? /samantha|victoria|karen|moira|tessa|female/i
+    : role === "character_male"
+      ? /daniel|alex|oliver|thomas|male/i
+      : /daniel|george|arthur|oliver/i;
+  return voices.find((voice) => /^en[-_]gb$/i.test(voice.lang) && preferredNames.test(voice.name))
+    ?? voices.find((voice) => preferredNames.test(voice.name))
+    ?? voices.find((voice) => /^en[-_]gb$/i.test(voice.lang));
 }
 
 /** ElevenLabs narration with an automatic, dependency-free browser fallback. */
@@ -106,12 +125,16 @@ export function useNarration(): UseNarrationResult {
   }, []);
 
   const fetchRemoteAudio = useCallback(
-    async (text: string, controller: AbortController): Promise<RemoteNarrationResult> => {
+    async (
+      text: string,
+      voice: NarrationVoiceRole,
+      controller: AbortController,
+    ): Promise<RemoteNarrationResult> => {
       try {
         const response = await fetch("/api/narrate", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, voice }),
           signal: controller.signal,
         });
 
@@ -182,9 +205,21 @@ export function useNarration(): UseNarrationResult {
       }
 
       const utterance = new SpeechSynthesisUtterance(text);
+      const voiceRole = options.voice ?? "narrator";
       utterance.lang = options.lang ?? "en-GB";
-      utterance.rate = normalizeSpeechValue(options.rate, 0.96, 0.5, 2);
-      utterance.pitch = normalizeSpeechValue(options.pitch, 0.82, 0, 2);
+      utterance.voice = browserVoiceFor(voiceRole) ?? null;
+      utterance.rate = normalizeSpeechValue(
+        options.rate,
+        voiceRole === "character_female" ? 1 : voiceRole === "character_male" ? 0.94 : 0.96,
+        0.5,
+        2,
+      );
+      utterance.pitch = normalizeSpeechValue(
+        options.pitch,
+        voiceRole === "character_female" ? 1.06 : voiceRole === "character_male" ? 0.86 : 0.82,
+        0,
+        2,
+      );
       utterance.volume = mutedRef.current ? 0 : 1;
 
       return new Promise<NarrationResult>((resolve) => {
@@ -243,7 +278,9 @@ export function useNarration(): UseNarrationResult {
         return speakInBrowser(trimmedText, options);
       }
 
-      const cachedAudio = getCachedAudio(trimmedText);
+      const voice = options.voice ?? "narrator";
+      const cacheKey = narrationCacheKey(trimmedText, voice);
+      const cachedAudio = getCachedAudio(cacheKey);
       if (cachedAudio) {
         const played = await playRemoteAudio(cachedAudio);
         if (played) return { source: "elevenlabs", ok: true };
@@ -254,10 +291,10 @@ export function useNarration(): UseNarrationResult {
       requestRef.current = controller;
       setStatus("loading");
       try {
-        const remote = await fetchRemoteAudio(trimmedText, controller);
+        const remote = await fetchRemoteAudio(trimmedText, voice, controller);
         if (controller.signal.aborted) return { source: "none", ok: false };
         if (remote.blob) {
-          cacheAudio(trimmedText, remote.blob);
+          cacheAudio(cacheKey, remote.blob);
           const played = await playRemoteAudio(remote.blob);
           if (played) return { source: "elevenlabs", ok: true };
         }
@@ -288,20 +325,30 @@ export function useNarration(): UseNarrationResult {
   );
 
   const prefetch = useCallback(
-    async (texts: readonly string[]): Promise<NarrationPrefetchResult> => {
-      const uniqueTexts = Array.from(
-        new Set(texts.map((text) => text.trim()).filter(Boolean)),
+    async (lines: readonly (string | NarrationLine)[]): Promise<NarrationPrefetchResult> => {
+      const normalized = lines
+        .map((line) => typeof line === "string" ? { text: line, voice: "narrator" as const } : {
+          text: line.text,
+          voice: line.voice ?? "narrator",
+        })
+        .map((line) => ({ ...line, text: line.text.trim() }))
+        .filter((line) => line.text.length > 0);
+      const uniqueLines = Array.from(
+        new Map(
+          normalized.map((line) => [narrationCacheKey(line.text, line.voice), line]),
+        ).values(),
       ).slice(0, MAX_PREFETCH_LINES);
       let ready = 0;
       let unavailable = 0;
 
       await Promise.all(
-        uniqueTexts.map(async (text) => {
+        uniqueLines.map(async ({ text, voice }) => {
           if (text.length > 800) {
             unavailable += 1;
             return;
           }
-          if (getCachedAudio(text)) {
+          const cacheKey = narrationCacheKey(text, voice);
+          if (getCachedAudio(cacheKey)) {
             ready += 1;
             return;
           }
@@ -309,9 +356,9 @@ export function useNarration(): UseNarrationResult {
           const controller = new AbortController();
           prefetchRequestsRef.current.add(controller);
           try {
-            const remote = await fetchRemoteAudio(text, controller);
+            const remote = await fetchRemoteAudio(text, voice, controller);
             if (remote.blob) {
-              cacheAudio(text, remote.blob);
+              cacheAudio(cacheKey, remote.blob);
               ready += 1;
             } else {
               unavailable += 1;
@@ -324,7 +371,7 @@ export function useNarration(): UseNarrationResult {
         }),
       );
 
-      return { requested: uniqueTexts.length, ready, unavailable };
+      return { requested: uniqueLines.length, ready, unavailable };
     },
     [cacheAudio, fetchRemoteAudio, getCachedAudio],
   );

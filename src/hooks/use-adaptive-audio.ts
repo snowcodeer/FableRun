@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   AdaptiveAudioEngine,
+  resolveAdaptiveAudioMood,
   type AdaptiveAudioMix,
   type AdaptiveAudioResult,
   type AdaptiveAudioStatus,
@@ -16,6 +17,7 @@ export function useAdaptiveAudio(
   const supported = AdaptiveAudioEngine.isSupported();
   const engineRef = useRef<AdaptiveAudioEngine | null>(null);
   const operationRef = useRef(0);
+  const duckedRef = useRef(false);
   const [status, setStatus] = useState<AdaptiveAudioStatus>(
     supported ? "idle" : "unsupported",
   );
@@ -23,6 +25,7 @@ export function useAdaptiveAudio(
   const [mix, setMixState] = useState<Required<AdaptiveAudioMix>>({
     intensity: Math.min(1, Math.max(0, initialMix.intensity)),
     performance: Math.min(1, Math.max(-1, initialMix.performance ?? 0)),
+    pace: Math.min(1, Math.max(0, initialMix.pace ?? 0)),
   });
 
   const getEngine = useCallback(() => {
@@ -41,6 +44,7 @@ export function useAdaptiveAudio(
       const engine = getEngine();
       engine.setMix(mix);
       engine.setMuted(muted);
+      engine.setDucked(duckedRef.current);
       const started = await engine.start();
       if (operation === operationRef.current) {
         setStatus(started ? "running" : "error");
@@ -91,6 +95,7 @@ export function useAdaptiveAudio(
     const normalized = {
       intensity: Math.min(1, Math.max(0, nextMix.intensity)),
       performance: Math.min(1, Math.max(-1, nextMix.performance ?? 0)),
+      pace: Math.min(1, Math.max(0, nextMix.pace ?? 0)),
     };
     setMixState(normalized);
     engineRef.current?.setMix(normalized);
@@ -99,6 +104,11 @@ export function useAdaptiveAudio(
   const setMuted = useCallback((nextMuted: boolean) => {
     setMutedState(nextMuted);
     engineRef.current?.setMuted(nextMuted);
+  }, []);
+
+  const setDucked = useCallback((ducked: boolean) => {
+    duckedRef.current = ducked;
+    engineRef.current?.setDucked(ducked);
   }, []);
 
   const toggleMuted = useCallback(() => {
@@ -123,12 +133,14 @@ export function useAdaptiveAudio(
     status,
     muted,
     mix,
+    mood: resolveAdaptiveAudioMood(mix),
     start,
     pause,
     resume,
     stop,
     setMix,
     setMuted,
+    setDucked,
     toggleMuted,
   };
 }

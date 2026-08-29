@@ -372,7 +372,12 @@ export function validateStoryGraph(
   const route = (choice: "rescue_together" | "signal_escape", mode: RunMode) => {
     let state = createInitialRunState({
       mode,
-      profile: { runnerName: "Runner", relationshipName: "Alex", relationshipLabel: "friend" },
+      profile: {
+        runnerName: "Runner",
+        relationshipName: "Alex",
+        relationshipLabel: "friend",
+        relationshipGender: "female",
+      },
       config: normalized,
     });
     let total = 0;

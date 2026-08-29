@@ -115,7 +115,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "recovery",
     title: "Gate sealed",
     storyText:
-      'The gate drops behind you. {{relationshipName}}: "I can hear you, {{runnerName}}. Breathe." Ease right down; stopping is always allowed.',
+      '"I can hear you, {{runnerName}}. The gate is sealed. Breathe. I am still here."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 60, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Slow down and regain control." },
     successThreshold: AUTO_THRESHOLD,
@@ -151,7 +152,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "recovery",
     title: "Inside the depot",
     storyText:
-      'You are through. {{relationshipName}}: "The office door is jammed, but I am safe for now." Recover fully while the route loads.',
+      '"The office door is jammed, but I am safe for now. Take the recovery. I need you steady."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 60, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Easy movement or a complete stop." },
     successThreshold: AUTO_THRESHOLD,
@@ -164,7 +166,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "choice",
     title: "Choose the last route",
     storyText:
-      "{{relationshipName}} is trapped in the station office. The rooftop flare can bring evacuation, but going back could get you both out together. Choose the story you want to finish.",
+      '"I have one flare. The roof is exposed. Come back through the service tunnel, or reach the flare and call evacuation. Your choice, {{runnerName}}."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 25, demoSeconds: 6 },
     targetEffort: { rpe: 1, label: "recover", cue: "Choose while fully under control." },
     successThreshold: AUTO_THRESHOLD,
@@ -194,7 +197,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "sprint",
     title: "The service tunnel",
     storyText:
-      "{{relationshipName}} answers through the door. One final controlled push reaches the release lever. Hold only the safest strong pace you can manage until the timer ends.",
+      '"The release lever is behind the next door. I can hear you coming. One last controlled push, then we are out together."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 50, demoSeconds: 10 },
     targetEffort: { rpe: 9, label: "very_hard", cue: "Final timed push; slow immediately if needed." },
     successThreshold: { strongSuccess: 90, success: 75, nearMiss: 56 },
@@ -250,7 +254,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "ending",
     title: "Together at the gate",
     storyText:
-      "The lock gives. {{relationshipName}} reaches you as the shutters close on the horde. You made the hard choice together.",
+      '"You came back. I knew you would. Now breathe, {{runnerName}}. We made it together."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 30, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Ease down now." },
     successThreshold: AUTO_THRESHOLD,
@@ -263,7 +268,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "ending",
     title: "Flare over the city",
     storyText:
-      "Red light floods the rooftop. The rescue team confirms two seats: one for you and one for {{relationshipName}}. The signal held.",
+      '"I see the flare. Rescue has our signal. Stay on the roof, {{runnerName}}. I am coming to you."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 30, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Ease down now." },
     successThreshold: AUTO_THRESHOLD,
@@ -276,7 +282,8 @@ export const BASE_STORY_NODES: Readonly<Record<StoryNodeId, StoryNode>> = {
     kind: "ending",
     title: "The doors hold",
     storyText:
-      "The route closes, but you find cover and {{relationshipName}} stays on the radio. This chapter ends safely; the rescue continues next time.",
+      '"The doors are holding. I am safe. You did enough, {{runnerName}}. We wait for daylight."',
+    speaker: "relationship",
     intendedDuration: { realSeconds: 30, demoSeconds: 8 },
     targetEffort: { rpe: 2, label: "recover", cue: "Ease down now." },
     successThreshold: AUTO_THRESHOLD,

@@ -20,6 +20,7 @@ const profile = {
   runnerName: "Sam",
   relationshipName: "Mara",
   relationshipLabel: "sister",
+  relationshipGender: "female" as const,
 };
 
 const strongPerformance: IntervalPerformance = {
@@ -195,8 +196,26 @@ test("every sprint is finite and all performance reactions are distinct and fail
     assert.equal(new Set(responses).size, 4);
   }
 
-  assert.match(renderStoryText(getNode("recovery_one"), profile), /Mara:.*Breathe/);
-  assert.match(renderStoryText(getNode("recovery_two"), profile), /Mara:.*safe for now/);
+  assert.match(renderStoryText(getNode("recovery_one"), profile), /Sam.*Breathe/);
+  assert.match(renderStoryText(getNode("recovery_two"), profile), /safe for now/);
+});
+
+test("character dialogue is explicitly cast while action remains with the narrator", () => {
+  for (const id of [
+    "recovery_one",
+    "recovery_two",
+    "final_choice",
+    "final_sprint_rescue",
+    "ending_rescue",
+    "ending_escape",
+    "ending_survive",
+  ] as const) {
+    assert.equal(getNode(id).speaker, "relationship", `${id} should use the character voice`);
+  }
+
+  for (const id of ["easy_start", "sprint_one", "sprint_two", "final_sprint_escape"] as const) {
+    assert.equal(getNode(id).speaker, undefined, `${id} should stay with the narrator`);
+  }
 });
 
 test("movement copy avoids unsafe or shaming commands", () => {

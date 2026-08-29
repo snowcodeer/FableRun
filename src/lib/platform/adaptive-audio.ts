@@ -3,7 +3,10 @@ export interface AdaptiveAudioMix {
   intensity: number;
   /** Runner performance from -1 (struggling) to 1 (strong). */
   performance?: number;
+  /** Live movement energy from 0 (still) to 1 (fast push). */
+  pace?: number;
 }
+export type AdaptiveAudioMood = "calm" | "tension" | "pursuit";
 export type AdaptiveAudioStatus =
   | "idle"
   | "starting"
@@ -18,6 +21,7 @@ export interface AdaptiveAudioResult {
   status: AdaptiveAudioStatus;
   muted: boolean;
   mix: Required<AdaptiveAudioMix>;
+  mood: AdaptiveAudioMood;
   /** Must be called from a user gesture before any sound is created. */
   start: () => Promise<boolean>;
   pause: () => Promise<void>;
@@ -26,6 +30,8 @@ export interface AdaptiveAudioResult {
   stop: () => Promise<void>;
   setMix: (mix: AdaptiveAudioMix) => void;
   setMuted: (muted: boolean) => void;
+  /** Lower the score while dialogue is playing. */
+  setDucked: (ducked: boolean) => void;
   toggleMuted: () => void;
 }
 
@@ -44,6 +50,25 @@ function clampAudio(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+export function adaptiveAudioUrgency(mix: AdaptiveAudioMix): number {
+  return clampAudio(
+    mix.intensity * 0.72 +
+      (mix.pace ?? 0) * 0.28 +
+      Math.max(0, -(mix.performance ?? 0)) * 0.12,
+    0,
+    1,
+  );
+}
+
+export function resolveAdaptiveAudioMood(
+  mix: AdaptiveAudioMix,
+): AdaptiveAudioMood {
+  const urgency = adaptiveAudioUrgency(mix);
+  if (urgency >= 0.7) return "pursuit";
+  if (urgency >= 0.36) return "tension";
+  return "calm";
+}
+
 /**
  * Dependency-free procedural score. It owns every node it creates and can be
  * safely stopped on route changes. Construction is silent; `start()` is the
@@ -54,13 +79,18 @@ export class AdaptiveAudioEngine {
   private master: GainNode | null = null;
   private ambientGain: GainNode | null = null;
   private chaseGain: GainNode | null = null;
+  private ambientOscillator: OscillatorNode | null = null;
+  private chaseOscillator: OscillatorNode | null = null;
+  private ambientFilter: BiquadFilterNode | null = null;
+  private chaseFilter: BiquadFilterNode | null = null;
   private longLivedNodes: AudioScheduledSourceNode[] = [];
   private scheduler: ReturnType<typeof setInterval> | null = null;
   private nextBeatAt = 0;
   private beatIndex = 0;
   private generation = 0;
   private muted = false;
-  private mix: Required<AdaptiveAudioMix> = { intensity: 0, performance: 0 };
+  private ducked = false;
+  private mix: Required<AdaptiveAudioMix> = { intensity: 0, performance: 0, pace: 0 };
 
   static isSupported(): boolean {
     return getAudioContextConstructor() !== null;
@@ -82,7 +112,7 @@ export class AdaptiveAudioEngine {
     compressor.ratio.value = 8;
 
     this.master = context.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.55;
+    this.master.gain.value = this.masterLevel();
     this.master.connect(compressor);
     compressor.connect(context.destination);
 
@@ -110,19 +140,19 @@ export class AdaptiveAudioEngine {
     this.mix = {
       intensity: clampAudio(mix.intensity, 0, 1),
       performance: clampAudio(mix.performance ?? 0, -1, 1),
+      pace: clampAudio(mix.pace ?? 0, 0, 1),
     };
     this.applyMix();
   }
 
   setMuted(muted: boolean): void {
     this.muted = muted;
-    if (!this.context || !this.master) return;
+    this.applyMasterLevel();
+  }
 
-    this.master.gain.setTargetAtTime(
-      muted ? 0 : 0.55,
-      this.context.currentTime,
-      0.04,
-    );
+  setDucked(ducked: boolean): void {
+    this.ducked = ducked;
+    this.applyMasterLevel();
   }
 
   async pause(): Promise<void> {
@@ -168,6 +198,10 @@ export class AdaptiveAudioEngine {
     this.master = null;
     this.ambientGain = null;
     this.chaseGain = null;
+    this.ambientOscillator = null;
+    this.chaseOscillator = null;
+    this.ambientFilter = null;
+    this.chaseFilter = null;
     if (context && context.state !== "closed") {
       await context.close().catch(() => undefined);
     }
@@ -188,6 +222,8 @@ export class AdaptiveAudioEngine {
     gain.connect(this.master);
     oscillator.start();
     this.ambientGain = gain;
+    this.ambientOscillator = oscillator;
+    this.ambientFilter = filter;
     this.longLivedNodes.push(oscillator);
   }
 
@@ -206,23 +242,45 @@ export class AdaptiveAudioEngine {
     gain.connect(this.master);
     oscillator.start();
     this.chaseGain = gain;
+    this.chaseOscillator = oscillator;
+    this.chaseFilter = filter;
     this.longLivedNodes.push(oscillator);
   }
 
   private applyMix(): void {
     if (!this.context) return;
-    const urgency = clampAudio(
-      this.mix.intensity + Math.max(0, -this.mix.performance) * 0.22,
-      0,
-      1,
-    );
+    const urgency = adaptiveAudioUrgency(this.mix);
+    const mood = resolveAdaptiveAudioMood(this.mix);
     const now = this.context.currentTime;
-    this.ambientGain?.gain.setTargetAtTime(0.02 + urgency * 0.04, now, 0.15);
+    const moodEnergy = mood === "pursuit" ? 1 : mood === "tension" ? 0.55 : 0.18;
+    this.ambientGain?.gain.setTargetAtTime(0.018 + moodEnergy * 0.035, now, 0.18);
     this.chaseGain?.gain.setTargetAtTime(
-      urgency > 0.58 ? (urgency - 0.58) * 0.075 : 0,
+      mood === "pursuit" ? 0.026 + urgency * 0.025 : mood === "tension" ? 0.009 : 0,
       now,
-      0.08,
+      0.12,
     );
+    this.ambientOscillator?.frequency.setTargetAtTime(
+      mood === "pursuit" ? 52 : mood === "tension" ? 47 : 43,
+      now,
+      0.2,
+    );
+    this.chaseOscillator?.frequency.setTargetAtTime(
+      mood === "pursuit" ? 98 : 82,
+      now,
+      0.16,
+    );
+    this.ambientFilter?.frequency.setTargetAtTime(150 + urgency * 160, now, 0.2);
+    this.chaseFilter?.frequency.setTargetAtTime(230 + urgency * 330, now, 0.16);
+  }
+
+  private masterLevel(): number {
+    if (this.muted) return 0;
+    return this.ducked ? 0.14 : 0.46;
+  }
+
+  private applyMasterLevel(): void {
+    if (!this.context || !this.master) return;
+    this.master.gain.setTargetAtTime(this.masterLevel(), this.context.currentTime, 0.05);
   }
 
   private startScheduler(): void {
@@ -240,21 +298,18 @@ export class AdaptiveAudioEngine {
     const context = this.context;
     if (!context || context.state !== "running") return;
 
-    const urgency = clampAudio(
-      this.mix.intensity + Math.max(0, -this.mix.performance) * 0.22,
-      0,
-      1,
-    );
-    const bpm = 66 + urgency * 76;
+    const urgency = adaptiveAudioUrgency(this.mix);
+    const mood = resolveAdaptiveAudioMood(this.mix);
+    const bpm = mood === "pursuit" ? 138 : mood === "tension" ? 96 : 66;
     const beatDuration = 60 / bpm;
 
     while (this.nextBeatAt < context.currentTime + 0.2) {
       this.scheduleHeartbeat(context, this.nextBeatAt, urgency);
-      if (urgency > 0.18) this.scheduleBass(context, this.nextBeatAt, urgency);
-      if (urgency > 0.4 && this.beatIndex % 2 === 0) {
+      if (mood !== "calm") this.scheduleBass(context, this.nextBeatAt, urgency);
+      if (mood !== "calm" && this.beatIndex % 2 === 0) {
         this.schedulePercussion(context, this.nextBeatAt, urgency);
       }
-      if (urgency > 0.72) {
+      if (mood === "pursuit") {
         this.schedulePercussion(
           context,
           this.nextBeatAt + beatDuration / 2,

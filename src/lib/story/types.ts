@@ -1,4 +1,6 @@
 export type RunMode = "real" | "demo";
+export type CharacterGender = "female" | "male";
+export type StorySpeaker = "narrator" | "relationship";
 
 export type StoryNodeId =
   | "onboarding"
@@ -93,6 +95,8 @@ export interface StoryNode {
   title: string;
   /** Supports {{runnerName}}, {{relationshipName}}, and {{relationshipLabel}}. */
   storyText: string;
+  /** Selects the narrator or the personalised character cast voice. */
+  speaker?: StorySpeaker;
   intendedDuration: IntendedDuration;
   targetEffort: TargetEffort;
   successThreshold: SuccessThresholds;
@@ -110,6 +114,7 @@ export interface RunnerProfile {
   runnerName: string;
   relationshipName: string;
   relationshipLabel: string;
+  relationshipGender: CharacterGender;
 }
 
 export interface PerformanceBaseline {

@@ -8,12 +8,15 @@ import {
   scoreInterval,
   summarizeRun,
   type IntervalPerformance,
+  type CharacterGender,
   type PerformanceClassification,
   type RunState,
   type RunnerProfile,
   type StoryNode,
   type StoryNodeId,
+  type StorySpeaker,
 } from "@/lib/story";
+import type { NarrationLine, NarrationVoiceRole } from "@/lib/platform/narration";
 
 export type DifficultyChoice = "beginner" | "regular" | "intense";
 export type DemoIntervalResult = "strong" | "success" | "near" | "miss";
@@ -25,6 +28,8 @@ export interface StorySceneModel {
   label: string;
   durationSeconds: number;
   story: string;
+  speaker: StorySpeaker;
+  voice: NarrationVoiceRole;
   cue: string;
   musicIntensity: number;
   intervalNumber: number;
@@ -83,12 +88,22 @@ const RESULT_CLASSIFICATION: Record<DemoIntervalResult, PerformanceClassificatio
 export function runnerProfileFromForm(input: {
   savee: string;
   relationship: string;
+  saveeGender: CharacterGender;
 }): RunnerProfile {
   return {
     runnerName: "Runner",
     relationshipName: input.savee.trim() || "Alex",
     relationshipLabel: input.relationship.trim().toLowerCase() || "friend",
+    relationshipGender: input.saveeGender,
   };
+}
+
+function voiceForNode(
+  speaker: StorySpeaker | undefined,
+  gender: CharacterGender,
+): NarrationVoiceRole {
+  if (speaker !== "relationship") return "narrator";
+  return gender === "male" ? "character_male" : "character_female";
 }
 
 export function createReadyRunState(options: {
@@ -120,6 +135,7 @@ export function createReadyRunState(options: {
 
 export function getCurrentScene(state: RunState): StorySceneModel {
   const node = getNode(state.currentNodeId, state.config);
+  const speaker = node.speaker ?? "narrator";
   const sequenceIndex = MOVEMENT_SEQUENCE.indexOf(node.id);
   const completedMovement = state.history.filter((entry) =>
     MOVEMENT_SEQUENCE.includes(entry.nodeId),
@@ -131,6 +147,8 @@ export function getCurrentScene(state: RunState): StorySceneModel {
     label: node.title,
     durationSeconds: getNodeDuration(node, state.mode, state.config),
     story: renderStoryText(node, state.profile),
+    speaker,
+    voice: voiceForNode(speaker, state.profile.relationshipGender),
     cue: node.targetEffort.cue,
     musicIntensity: node.musicIntensity,
     intervalNumber: sequenceIndex >= 0 ? completedMovement + 1 : completedMovement,
@@ -281,7 +299,7 @@ export function getSummaryModel(state: RunState) {
   return summarizeRun(state);
 }
 
-export function narrationPrefetchLines(state: RunState): string[] {
+export function narrationPrefetchLines(state: RunState): NarrationLine[] {
   const node = getNode(state.currentNodeId, state.config);
   const nextIds = new Set<StoryNodeId>([
     node.transitions.strongSuccess,
@@ -291,10 +309,19 @@ export function narrationPrefetchLines(state: RunState): string[] {
     ...(node.decision?.options.map((option) => option.nextNodeId) ?? []),
   ]);
 
-  return [
-    renderStoryText(node, state.profile),
-    ...Array.from(nextIds, (id) => renderStoryText(getNode(id, state.config), state.profile)),
-  ].filter((line, index, lines) => line.length > 0 && lines.indexOf(line) === index);
+  const nodes = [node, ...Array.from(nextIds, (id) => getNode(id, state.config))];
+  const lines = nodes.map((candidate) => ({
+    text: renderStoryText(candidate, state.profile),
+    voice: voiceForNode(candidate.speaker, state.profile.relationshipGender),
+  }));
+
+  return Array.from(
+    new Map(
+      lines
+        .filter((line) => line.text.length > 0)
+        .map((line) => [`${line.voice}\u0000${line.text}`, line]),
+    ).values(),
+  );
 }
 
 export function threatDistanceFor(state: RunState): number {

@@ -140,6 +140,7 @@ svg { display: block; }
 
 /* Shared shell */
 .app-shell { position:relative; min-height:100svh; overflow:hidden; isolation:isolate; background:var(--ink); }
+.app-shell.stage-profile { overflow:auto; }
 .global-grid { position:absolute; inset:0; z-index:-3; background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px); background-size:42px 42px; mask-image:linear-gradient(to bottom,black,transparent 82%); }
 .global-vignette { position:absolute; inset:0; z-index:-2; pointer-events:none; background:radial-gradient(circle at 50% 22%, rgba(91,24,19,.12), transparent 35%),radial-gradient(circle at center,transparent 20%,rgba(0,0,0,.66) 100%); }
 .app-header { width:100%; max-width:600px; margin:auto; padding:max(20px,env(safe-area-inset-top)) 20px 0; display:flex; justify-content:space-between; align-items:center; }
@@ -176,6 +177,7 @@ svg { display: block; }
 .choice-grid button i { width:17px; height:17px; border:1px solid #50555a; display:grid; place-items:center; color:#050607; font:800 10px/1 sans-serif; }
 .choice-grid button.is-selected { border-color:rgba(168,255,207,.52); background:rgba(168,255,207,.07); }
 .choice-grid button.is-selected i { background:var(--safe); border-color:var(--safe); }
+.cast-note { margin:10px 0 0; color:#747a7e; font-size:10px; line-height:1.45; }
 .difficulty-stack { display:grid; gap:8px; }
 .difficulty-card { width:100%; min-height:62px; padding:0 14px; display:grid; grid-template-columns:32px 1fr auto; align-items:center; text-align:left; border:1px solid var(--line); background:rgba(255,255,255,.025); cursor:pointer; }
 .difficulty-card > i { height:23px; display:flex; align-items:end; gap:3px; }

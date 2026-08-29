@@ -23,7 +23,7 @@ import {
   type DemoIntervalResult,
   type StorySceneModel,
 } from "@/lib/cliffhanger-controller";
-import type { RunState } from "@/lib/story";
+import type { CharacterGender, RunState } from "@/lib/story";
 import type { DemoGpsCondition, DemoPace } from "@/lib/platform/run-tracking";
 
 type Stage =
@@ -45,6 +45,7 @@ const AUDIO_TEST_LINE = "Control here. Comms are online. Keep moving.";
 
 interface Profile {
   savee: string;
+  saveeGender: CharacterGender;
   relationship: Relationship;
   difficulty: Difficulty;
 }
@@ -67,6 +68,7 @@ export default function CliffhangerApp({
   const [stage, setStage] = useState<Stage>("landing");
   const [profile, setProfile] = useState<Profile>({
     savee: "Natalie",
+    saveeGender: "female",
     relationship: "Partner",
     difficulty: "regular",
   });
@@ -102,6 +104,7 @@ export default function CliffhangerApp({
   const wakeLock = useWakeLock(false);
   const prefetchNarration = narration.prefetch;
   const setAudioMix = audioMix.setMix;
+  const setAudioDucked = audioMix.setDucked;
 
   const previewState = useMemo(
     () => createReadyRunState({
@@ -127,6 +130,9 @@ export default function CliffhangerApp({
     ((completedMovement + (1 - sceneTime / Math.max(1, scene.durationSeconds))) /
       scene.totalMovementScenes) * 100,
   );
+  const activeVoiceLabel = scene.speaker === "relationship"
+    ? `${profile.savee.toUpperCase()} · ${profile.saveeGender === "female" ? "EMILIA" : "ARCHER"}`
+    : "GEORGE · CONTROL";
 
   useEffect(() => {
     if (stage === "landing") return;
@@ -172,8 +178,13 @@ export default function CliffhangerApp({
     setAudioMix({
       intensity: scene.musicIntensity,
       performance: result === "strong" ? 0.8 : result === "miss" ? -0.7 : result === "near" ? -0.25 : 0.25,
+      pace: Math.min(1, Math.max(0, (tracking.speedMps - 0.6) / 3.4)),
     });
-  }, [activeStoryState, prefetchNarration, result, scene.musicIntensity, setAudioMix, stage, storyState]);
+  }, [activeStoryState, prefetchNarration, result, scene.musicIntensity, setAudioMix, stage, storyState, tracking.speedMps]);
+
+  useEffect(() => {
+    setAudioDucked(narration.status === "loading" || narration.status === "speaking");
+  }, [narration.status, setAudioDucked]);
 
   const recentEvent = useMemo(
     () => latestPerformanceResponse(activeStoryState),
@@ -245,7 +256,10 @@ export default function CliffhangerApp({
     sceneStartRef.current = { distanceMeters: 0, elapsedMs: 0 };
     void audioMix.start();
     void wakeLock.request();
-    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
+    void narration.speak(nextScene.story, {
+      preferRemote: !forceBrowserVoice,
+      voice: nextScene.voice,
+    });
     goTo("run");
   };
 
@@ -287,7 +301,10 @@ export default function CliffhangerApp({
       distanceMeters: tracking.distanceMeters,
       elapsedMs: tracking.elapsedMs,
     };
-    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
+    void narration.speak(nextScene.story, {
+      preferRemote: !forceBrowserVoice,
+      voice: nextScene.voice,
+    });
     if (nextState.currentNodeId === "final_choice") goTo("choice");
     else if (nextState.currentNodeId.startsWith("ending_")) {
       tracking.stop();
@@ -314,7 +331,10 @@ export default function CliffhangerApp({
       distanceMeters: tracking.distanceMeters,
       elapsedMs: tracking.elapsedMs,
     };
-    void narration.speak(nextScene.story, { preferRemote: !forceBrowserVoice });
+    void narration.speak(nextScene.story, {
+      preferRemote: !forceBrowserVoice,
+      voice: nextScene.voice,
+    });
     goTo("run");
   };
 
@@ -418,6 +438,27 @@ export default function CliffhangerApp({
                   </ChoiceButton>
                 ))}
               </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="field-label">Choose their voice</legend>
+              <div className="choice-grid choice-grid--gender">
+                <ChoiceButton
+                  selected={profile.saveeGender === "female"}
+                  onClick={() => setProfile({ ...profile, saveeGender: "female" })}
+                >
+                  Female voice
+                </ChoiceButton>
+                <ChoiceButton
+                  selected={profile.saveeGender === "male"}
+                  onClick={() => setProfile({ ...profile, saveeGender: "male" })}
+                >
+                  Male voice
+                </ChoiceButton>
+              </div>
+              <p className="cast-note">
+                {profile.savee || "Your character"} speaks in their own scenes; Control narrates the rest.
+              </p>
             </fieldset>
 
             <fieldset>
@@ -574,7 +615,14 @@ export default function CliffhangerApp({
               {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--wave": `${18 + ((index * 23) % 70)}%` } as React.CSSProperties} />)}
             </div>
             <blockquote>“{scene.story}”</blockquote>
-            <span>CONTROL · {narration.source === "elevenlabs" ? "GEORGE RADIO" : narration.source === "browser" ? "DEVICE VOICE FALLBACK" : "LIVE TRANSMISSION"}</span>
+            <span>
+              {narration.source === "elevenlabs"
+                ? activeVoiceLabel
+                : narration.source === "browser"
+                  ? `${scene.speaker === "relationship" ? profile.savee.toUpperCase() : "CONTROL"} · DEVICE FALLBACK`
+                  : activeVoiceLabel}
+              {` · SCORE ${audioMix.mood.toUpperCase()}`}
+            </span>
           </div>
 
           <div className="run-metrics">
@@ -611,7 +659,7 @@ export default function CliffhangerApp({
                 ))}
               </div>
               <div className="demo-results" aria-label="Narration source">
-                <button className={!forceBrowserVoice ? "is-active" : ""} onClick={() => setForceBrowserVoice(false)}>Yowz radio</button>
+                <button className={!forceBrowserVoice ? "is-active" : ""} onClick={() => setForceBrowserVoice(false)}>Cast voices</button>
                 <button className={forceBrowserVoice ? "is-active" : ""} onClick={() => setForceBrowserVoice(true)}>Browser fallback</button>
                 <button onClick={() => setDemoTimeScale((value) => value >= 20 ? 1 : value + 4)}>{demoTimeScale}× time</button>
               </div>

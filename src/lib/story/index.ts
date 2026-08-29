@@ -24,6 +24,7 @@ export {
 
 export type {
   AdvanceStoryInput,
+  CharacterGender,
   IntendedDuration,
   IntervalPerformance,
   IntervalScore,
@@ -44,6 +45,7 @@ export type {
   StoryNodeKind,
   StoryNodeOverride,
   StoryRouteValidation,
+  StorySpeaker,
   StoryTransitions,
   SuccessThresholds,
   TargetEffort,
