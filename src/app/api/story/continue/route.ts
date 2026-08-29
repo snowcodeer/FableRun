@@ -80,22 +80,27 @@ function parseContinuation(text: string): Omit<StoryContinuation, "source"> | nu
   }
 }
 
-async function continueWithOpenAI(
+async function continueWithModel(
   input: ContinueRequest,
-  apiKey: string,
+  options: {
+    endpoint: string;
+    token: string;
+    model: string;
+    source: "openai" | "gateway";
+  },
 ): Promise<StoryContinuation | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch(options.endpoint, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${options.token}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_STORY_MODEL || DEFAULT_MODEL,
+        model: options.model,
         store: false,
         reasoning: { effort: "none" },
         max_output_tokens: 180,
@@ -144,7 +149,7 @@ async function continueWithOpenAI(
     const text = outputText(body);
     if (!text) return null;
     const continuation = parseContinuation(text);
-    return continuation ? { ...continuation, source: "openai" } : null;
+    return continuation ? { ...continuation, source: options.source } : null;
   } catch {
     return null;
   } finally {
@@ -178,10 +183,35 @@ export async function POST(request: Request): Promise<Response> {
     input.choiceText,
     input.relationshipName,
   );
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const continuation = apiKey
-    ? (await continueWithOpenAI(input, apiKey)) ?? fallback
-    : fallback;
+  const configuredModel = process.env.OPENAI_STORY_MODEL || DEFAULT_MODEL;
+  const gatewayToken = (
+    process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN
+  )?.trim();
+  const openAIKey = process.env.OPENAI_API_KEY?.trim();
+
+  // Vercel supplies a short-lived OIDC token automatically in production. It
+  // keeps the app deployable without another long-lived secret and can still
+  // route the exact OpenAI model selected above. Direct OpenAI remains the
+  // local/non-Vercel path and the finite story bridge is the final fallback.
+  const gatewayContinuation = gatewayToken
+    ? await continueWithModel(input, {
+        endpoint: "https://ai-gateway.vercel.sh/v1/responses",
+        token: gatewayToken,
+        model: configuredModel.includes("/")
+          ? configuredModel
+          : `openai/${configuredModel}`,
+        source: "gateway",
+      })
+    : null;
+  const openAIContinuation = !gatewayContinuation && openAIKey
+    ? await continueWithModel(input, {
+        endpoint: "https://api.openai.com/v1/responses",
+        token: openAIKey,
+        model: configuredModel.replace(/^openai\//, ""),
+        source: "openai",
+      })
+    : null;
+  const continuation = gatewayContinuation ?? openAIContinuation ?? fallback;
 
   return Response.json(
     { ok: true, continuation },

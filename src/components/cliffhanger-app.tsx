@@ -934,7 +934,7 @@ export default function FableRunApp({
               {voiceChoiceStatus === "thinking" && "Writing your move into the episode…"}
               {voiceChoiceStatus === "idle" && "Microphone optional · typing works too"}
               {voiceChoiceStatus === "error" && voiceChoiceError}
-              {voiceChoiceStatus === "ready" && `Story route ready · ${storyContinuation?.source === "openai" ? "AI directed" : "instant safe bridge"}`}
+              {voiceChoiceStatus === "ready" && `Story route ready · ${storyContinuation?.source !== "fallback" ? "AI directed" : "instant safe bridge"}`}
             </p>
 
             {storyContinuation && (

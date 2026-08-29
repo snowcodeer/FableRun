@@ -4,7 +4,7 @@ export interface StoryContinuation {
   routeId: CanonicalStoryChoice;
   routeLabel: string;
   reply: string;
-  source: "openai" | "fallback";
+  source: "openai" | "gateway" | "fallback";
 }
 const SIGNAL_ROUTE_PATTERN =
   /\b(roof|rooftop|flare|signal|evac|evacuate|helicopter|radio|beacon|rescue team|higher ground|upstairs|stairwell)\b/i;
