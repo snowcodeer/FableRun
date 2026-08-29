@@ -24,6 +24,11 @@ import {
   type StorySceneModel,
 } from "@/lib/cliffhanger-controller";
 import type { CharacterGender, RunState } from "@/lib/story";
+import {
+  fallbackStoryContinuation,
+  type CanonicalStoryChoice,
+  type StoryContinuation,
+} from "@/lib/story/freeform-choice";
 import type { DemoGpsCondition, DemoPace } from "@/lib/platform/run-tracking";
 
 type Stage =
@@ -39,6 +44,7 @@ type Stage =
 type Difficulty = "beginner" | "regular" | "intense";
 type Relationship = "Partner" | "Friend" | "Sibling" | "Parent";
 type PermissionState = "idle" | "ready" | "fallback";
+type VoiceChoiceStatus = "idle" | "listening" | "thinking" | "ready" | "error";
 type RunResult = DemoIntervalResult;
 
 const AUDIO_TEST_LINE = "Control here. Comms are online. Keep moving.";
@@ -48,6 +54,45 @@ interface Profile {
   saveeGender: CharacterGender;
   relationship: Relationship;
   difficulty: Difficulty;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0?: { transcript?: string };
+}
+
+interface SpeechRecognitionEventLike {
+  results: {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+}
+
+interface SpeechRecognitionErrorLike {
+  error?: string;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorLike) => void) | null;
+  onend: (() => void) | null;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+function speechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const speechWindow = window as typeof window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
 export interface FableRunAppProps {
@@ -75,6 +120,7 @@ export default function FableRunApp({
   const [demoMode, setDemoMode] = useState(initialDemoMode);
   const [locationState, setLocationState] = useState<PermissionState>("idle");
   const [audioState, setAudioState] = useState<PermissionState>("idle");
+  const [microphoneState, setMicrophoneState] = useState<PermissionState>("idle");
   const [motionState, setMotionState] = useState<PermissionState>("idle");
   const [calibrationTime, setCalibrationTime] = useState(12);
   const [storyState, setStoryState] = useState<RunState | null>(null);
@@ -83,7 +129,11 @@ export default function FableRunApp({
   const [demoOpen, setDemoOpen] = useState(false);
   const [spectator, setSpectator] = useState(false);
   const [result, setResult] = useState<RunResult>("success");
-  const [choice, setChoice] = useState<"rescue_together" | "signal_escape" | null>(null);
+  const [choice, setChoice] = useState<CanonicalStoryChoice | null>(null);
+  const [voiceChoiceStatus, setVoiceChoiceStatus] = useState<VoiceChoiceStatus>("idle");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceChoiceError, setVoiceChoiceError] = useState<string | null>(null);
+  const [storyContinuation, setStoryContinuation] = useState<StoryContinuation | null>(null);
   const [demoPace, setDemoPace] = useState<DemoPace>("easy");
   const [demoGps, setDemoGps] = useState<DemoGpsCondition>("available");
   const [demoTimeScale, setDemoTimeScale] = useState(4);
@@ -91,6 +141,8 @@ export default function FableRunApp({
   const stageTitleRef = useRef<HTMLHeadingElement>(null);
   const sceneStartRef = useRef({ distanceMeters: 0, elapsedMs: 0 });
   const baselineSpeedRef = useRef(2.55);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const storyChoiceRequestRef = useRef<AbortController | null>(null);
 
   const tracking = useRunTracking({
     mode: demoMode ? "demo" : "live",
@@ -139,6 +191,11 @@ export default function FableRunApp({
     const timeout = window.setTimeout(() => stageTitleRef.current?.focus(), 120);
     return () => window.clearTimeout(timeout);
   }, [stage, spectator]);
+
+  useEffect(() => () => {
+    speechRecognitionRef.current?.abort();
+    storyChoiceRequestRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (stage !== "calibration" || paused) return;
@@ -231,9 +288,24 @@ export default function FableRunApp({
     }
   };
 
+  const requestMicrophone = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicrophoneState("fallback");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicrophoneState("ready");
+    } catch {
+      setMicrophoneState("fallback");
+    }
+  };
+
   const beginCalibration = () => {
     if (locationState === "idle") setLocationState("fallback");
     if (audioState === "idle") setAudioState("fallback");
+    if (microphoneState === "idle") setMicrophoneState("fallback");
     if (motionState === "idle") setMotionState("fallback");
     setCalibrationTime(12);
     tracking.start();
@@ -250,6 +322,10 @@ export default function FableRunApp({
     setStoryState(nextState);
     setSceneTime(nextScene.durationSeconds);
     setChoice(null);
+    setVoiceTranscript("");
+    setVoiceChoiceStatus("idle");
+    setVoiceChoiceError(null);
+    setStoryContinuation(null);
     setPaused(false);
     tracking.reset();
     tracking.start();
@@ -320,8 +396,10 @@ export default function FableRunApp({
     } else goTo("run");
   };
 
-  const selectChoice = (nextChoice: "rescue_together" | "signal_escape") => {
+  const selectChoice = (nextChoice: CanonicalStoryChoice) => {
     if (!storyState) return;
+    speechRecognitionRef.current?.abort();
+    storyChoiceRequestRef.current?.abort();
     const nextState = chooseRoute(storyState, nextChoice);
     const nextScene = getCurrentScene(nextState);
     setChoice(nextChoice);
@@ -336,6 +414,115 @@ export default function FableRunApp({
       voice: nextScene.voice,
     });
     goTo("run");
+  };
+
+  const startListeningForChoice = () => {
+    if (voiceChoiceStatus === "thinking") return;
+    if (voiceChoiceStatus === "listening") {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+
+    const Recognition = speechRecognitionConstructor();
+    if (!Recognition) {
+      setMicrophoneState("fallback");
+      setVoiceChoiceStatus("error");
+      setVoiceChoiceError("Voice input is not available in this browser. Type your move or use either route button.");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.lang = "en-GB";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onresult = (event) => {
+      let transcript = "";
+      let hasFinalResult = false;
+      for (let index = 0; index < event.results.length; index += 1) {
+        transcript += event.results[index]?.[0]?.transcript ?? "";
+        hasFinalResult ||= event.results[index]?.isFinal === true;
+      }
+      if (transcript.trim()) setVoiceTranscript(transcript.trim().slice(0, 280));
+      if (hasFinalResult) recognition.stop();
+    };
+    recognition.onerror = (event) => {
+      const denied = event.error === "not-allowed" || event.error === "service-not-allowed";
+      if (denied) setMicrophoneState("fallback");
+      setVoiceChoiceStatus("error");
+      setVoiceChoiceError(
+        denied
+          ? "Microphone access is off. Type your move or use either route button."
+          : "I couldn’t hear that clearly. Try again or type your move.",
+      );
+    };
+    recognition.onend = () => {
+      speechRecognitionRef.current = null;
+      setVoiceChoiceStatus((current) => current === "listening" ? "idle" : current);
+    };
+    speechRecognitionRef.current = recognition;
+    setStoryContinuation(null);
+    setVoiceChoiceError(null);
+    setVoiceChoiceStatus("listening");
+    try {
+      recognition.start();
+      setMicrophoneState("ready");
+    } catch {
+      speechRecognitionRef.current = null;
+      setVoiceChoiceStatus("error");
+      setVoiceChoiceError("The microphone is busy. Try again or type your move.");
+    }
+  };
+
+  const submitFreeformChoice = async (event: FormEvent) => {
+    event.preventDefault();
+    const choiceText = voiceTranscript.trim();
+    if (choiceText.length < 2) {
+      setVoiceChoiceStatus("error");
+      setVoiceChoiceError("Say or type what you want to do next.");
+      return;
+    }
+
+    speechRecognitionRef.current?.stop();
+    storyChoiceRequestRef.current?.abort();
+    const controller = new AbortController();
+    storyChoiceRequestRef.current = controller;
+    setStoryContinuation(null);
+    setVoiceChoiceError(null);
+    setVoiceChoiceStatus("thinking");
+
+    let continuation = fallbackStoryContinuation(choiceText, profile.savee);
+    try {
+      const response = await fetch("/api/story/continue", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          choiceText,
+          relationshipName: profile.savee,
+          relationshipLabel: profile.relationship.toLowerCase(),
+        }),
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          continuation?: StoryContinuation;
+        };
+        if (payload.continuation) continuation = payload.continuation;
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.warn("FableRun used the local story bridge.", error);
+    } finally {
+      if (storyChoiceRequestRef.current === controller) {
+        storyChoiceRequestRef.current = null;
+      }
+    }
+
+    setStoryContinuation(continuation);
+    setVoiceChoiceStatus("ready");
+    void narration.speak(continuation.reply.replaceAll("“", "").replaceAll("”", ""), {
+      preferRemote: !forceBrowserVoice,
+      voice: profile.saveeGender === "female" ? "character_female" : "character_male",
+    });
   };
 
   const pauseRun = () => {
@@ -517,6 +704,14 @@ export default function FableRunApp({
               action="Test audio"
             />
             <PermissionCard
+              icon="●"
+              title="Microphone"
+              detail="Speak any move at story choices"
+              state={microphoneState}
+              onClick={requestMicrophone}
+              action="Enable voice choices"
+            />
+            <PermissionCard
               icon="≈"
               title="Motion"
               detail="Optional cadence enhancement"
@@ -684,20 +879,81 @@ export default function FableRunApp({
 
       {stage === "choice" && (
         <section className="screen screen--choice">
-          <div className="decision-timer"><span>Decision window</span><strong>08</strong></div>
+          <div className="decision-timer"><span>Decision window</span><strong>OPEN</strong></div>
           <div className="choice-copy">
             <p className="eyebrow danger">Story choice</p>
             <h1 ref={stageTitleRef} tabIndex={-1}>You choose the next move.</h1>
             <p>“{decisionModel?.prompt ?? "Choose the safest route for you."}”</p>
           </div>
-          <div className="voice-wave" aria-label="Listening for voice choice"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
-          <p className="listening">Say a route or tap below</p>
+          <form className={`voice-choice voice-choice--${voiceChoiceStatus}`} onSubmit={submitFreeformChoice}>
+            <div className="voice-choice__header">
+              <div className="voice-wave" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
+              <div>
+                <strong>{voiceChoiceStatus === "listening" ? "Listening…" : "Choose in your own words"}</strong>
+                <small>Say any move. FableRun will write it into the episode.</small>
+              </div>
+            </div>
+            <div className="voice-choice__composer">
+              <button
+                type="button"
+                className={`mic-button ${voiceChoiceStatus === "listening" ? "is-listening" : ""}`}
+                onClick={startListeningForChoice}
+                disabled={voiceChoiceStatus === "thinking"}
+                aria-label={voiceChoiceStatus === "listening" ? "Stop listening" : "Speak your story choice"}
+                aria-pressed={voiceChoiceStatus === "listening"}
+              >
+                <MicIcon />
+              </button>
+              <label className="voice-choice__input">
+                <span className="sr-only">Your next story move</span>
+                <textarea
+                  value={voiceTranscript}
+                  onChange={(event) => {
+                    setVoiceTranscript(event.target.value.slice(0, 280));
+                    setStoryContinuation(null);
+                    setVoiceChoiceError(null);
+                    if (voiceChoiceStatus !== "listening") setVoiceChoiceStatus("idle");
+                  }}
+                  placeholder="I climb the loading crane and signal from above…"
+                  rows={2}
+                  maxLength={280}
+                  disabled={voiceChoiceStatus === "thinking"}
+                />
+              </label>
+              <button
+                type="submit"
+                className="voice-choice__send"
+                disabled={voiceChoiceStatus === "thinking" || voiceTranscript.trim().length < 2}
+                aria-label="Continue story with this move"
+              >
+                {voiceChoiceStatus === "thinking" ? <i aria-hidden="true" /> : <ArrowIcon />}
+              </button>
+            </div>
+            <p className="voice-choice__status" aria-live="polite">
+              {voiceChoiceStatus === "listening" && "Speak now — tap the microphone when you’re done."}
+              {voiceChoiceStatus === "thinking" && "Writing your move into the episode…"}
+              {voiceChoiceStatus === "idle" && "Microphone optional · typing works too"}
+              {voiceChoiceStatus === "error" && voiceChoiceError}
+              {voiceChoiceStatus === "ready" && `Story route ready · ${storyContinuation?.source === "openai" ? "AI directed" : "instant safe bridge"}`}
+            </p>
+
+            {storyContinuation && (
+              <div className="voice-choice__result">
+                <span>{profile.savee} answers</span>
+                <blockquote>{storyContinuation.reply}</blockquote>
+                <button type="button" onClick={() => selectChoice(storyContinuation.routeId)}>
+                  Continue · {storyContinuation.routeLabel}<ArrowIcon />
+                </button>
+              </div>
+            )}
+          </form>
+
+          <div className="choice-divider"><span>or use a quick choice</span></div>
           <div className="route-choices">
             {(decisionModel?.options ?? []).map((option, index) => (
-              <button key={option.id} onClick={() => selectChoice(option.id as "rescue_together" | "signal_escape")}><span>{index === 0 ? "A" : "B"}</span><div><strong>{option.label}</strong><small>{option.description}</small></div><ArrowIcon /></button>
+              <button key={option.id} onClick={() => selectChoice(option.id as CanonicalStoryChoice)}><span>{index === 0 ? "A" : "B"}</span><div><strong>{option.label}</strong><small>{option.description}</small></div><ArrowIcon /></button>
             ))}
           </div>
-          <button className="text-action" onClick={() => selectChoice("signal_escape")}>Can’t speak? Choose the evacuation route</button>
         </section>
       )}
 
@@ -819,3 +1075,4 @@ function PauseIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path 
 function ScreenIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="1" /><path d="M9 21h6M12 18v3" /></svg>; }
 function RestartIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8V3m0 0h5M4 3l4 4a7 7 0 1 1-2 7" /></svg>; }
 function ShieldIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.8 8.3 7 10 4.2-1.7 7-5.5 7-10V6z" /><path d="m9 12 2 2 4-4" /></svg>; }
+function MicIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" /></svg>; }
