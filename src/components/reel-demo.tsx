@@ -33,6 +33,7 @@ type VideoSource = "sample" | "upload" | "camera";
 const REEL_DURATION_SECONDS = 120;
 const SIGNUP_URL = "https://fablerun.vercel.app/waitlist";
 const OUTBREAK_WARNING = "London just fell—and there are zombies forty-two metres behind you.";
+const SIGNUP_PROMPT = "Join FableRun now.";
 
 const reelCopy: Record<Exclude<ReelPhase, "setup">, {
   eyebrow: string;
@@ -121,7 +122,7 @@ function mixFor(phase: Exclude<ReelPhase, "setup">) {
   if (phase === "rescue") return { intensity: 1, pace: 1, performance: -0.8 };
   if (phase === "loss") return { intensity: 0.32, pace: 0.2, performance: -0.85 };
   if (phase === "sprint") return { intensity: 1, pace: 1, performance: 0.82 };
-  return { intensity: 0.74, pace: 0.62, performance: 0.8 };
+  return { intensity: 0.18, pace: 0.08, performance: 0.9 };
 }
 
 function formatRemaining(seconds: number) {
@@ -230,6 +231,20 @@ export default function ReelDemo() {
     }, 850);
   }, [clearNarrationTimer, playSiren, setAudioDucked, speakNarration]);
 
+  const triggerSignup = useCallback(() => {
+    clearNarrationTimer();
+    setAudioDucked(true);
+    narrationTimerRef.current = window.setTimeout(() => {
+      narrationTimerRef.current = null;
+      void speakNarration(SIGNUP_PROMPT, {
+        preferRemote: true,
+        voice: "narrator",
+        rate: 0.96,
+        pitch: 0.9,
+      }).finally(() => setAudioDucked(false));
+    }, 4_100);
+  }, [clearNarrationTimer, setAudioDucked, speakNarration]);
+
   const stopTake = useCallback(() => {
     cancelAnimationFrame(animationRef.current);
     clearNarrationTimer();
@@ -252,6 +267,7 @@ export default function ReelDemo() {
       setAudioMix(mixFor(nextPhase));
       setPhase(nextPhase);
       if (nextPhase === "drop") triggerOutbreak();
+      if (nextPhase === "end") triggerSignup();
     }
     setElapsed(nextElapsed);
     if (nextElapsed >= REEL_DURATION_SECONDS) {
@@ -259,7 +275,7 @@ export default function ReelDemo() {
       return;
     }
     animationRef.current = requestAnimationFrame((nextNow) => frameRef.current(nextNow));
-  }, [setAudioMix, stopTake, triggerOutbreak]);
+  }, [setAudioMix, stopTake, triggerOutbreak, triggerSignup]);
 
   useEffect(() => {
     frameRef.current = frame;
@@ -486,9 +502,9 @@ export default function ReelDemo() {
         {phase === "end" && (
           <div className="reel-end-cta">
             <div>
-              <span>YOUR TURN</span>
-              <strong>RUN THE NEXT EPISODE.</strong>
-              <p>Scan to join the FableRun beta.</p>
+              <span>EARLY ACCESS</span>
+              <strong>JOIN FABLERUN NOW.</strong>
+              <p>Scan the QR or use the link.</p>
             </div>
             <a href={SIGNUP_URL} target="_blank" rel="noreferrer" aria-label="Sign up for FableRun">
               <QRCodeSVG
@@ -500,7 +516,7 @@ export default function ReelDemo() {
                 marginSize={1}
                 title="FableRun signup QR code"
               />
-              <small>SCAN TO RUN</small>
+              <small><span>fablerun.vercel.app</span><span>/waitlist</span></small>
             </a>
             <WaitlistForm compact source="reel" />
             <div className="reel-end-actions">

@@ -1102,7 +1102,7 @@ body { background:#0b0b0d; }
   text-decoration:none;
 }
 .reel-end-cta>a svg { width:min(26vw,116px); height:auto; }
-.reel-end-cta>a small { font:900 8px/1 var(--font-data); letter-spacing:.08em; }
+.reel-end-cta>a small { display:flex; flex-direction:column; align-items:center; gap:2px; font:850 7px/1.08 var(--font-data); letter-spacing:-.02em; }
 .reel-end-cta>.waitlist-form { grid-column:1/-1; }
 .reel-end-actions { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .reel-end-actions button,

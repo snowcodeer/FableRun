@@ -27,7 +27,8 @@ A vertical run that plays completely in-world. You never explain the product or 
 | 1:13–1:28 | Accelerate. The companion distance falls from 24m to 8m. Joon’s own voice comes through separately from the narrator. | **JOON:** “They’re right behind me!” **NARRATOR:** “Sixteen metres… twelve… eight.” **YOU:** “I can see you. Keep moving!” |
 | 1:28–1:41 | The horde reaches Joon. Cut his sentence off with impact, static and zombie noise; avoid a graphic visual. His marker collapses and the score drops out. | **JOON:** “Don’t stop. Just—” **STATIC / HORDE** **YOU:** “Joon? Joon!” **NARRATOR:** “Companion signal lost. No pulse detected.” |
 | 1:41–1:52 | One beat of silence, then the pursuit score slams back in. You turn and sprint alone. HUD: `400M LEFT`. | **NARRATOR:** “Final interval. Four hundred metres. Pursuit distance: twelve metres.” **YOU:** breathing only; no explanation. |
-| 1:52–2:00 | Stop, breathless. FableRun shows `NEW PB`, then holds the clean QR/waitlist card for eight seconds. | **NARRATOR:** “Run complete. New personal best.” **YOU, quietly:** “Joon… we won.” |
+| 1:52–1:56 | Stop, breathless. FableRun shows `NEW PB` and the music falls away. | **NARRATOR:** “Run complete. New personal best.” |
+| 1:56–2:00 | Hold the QR code completely still with `fablerun.vercel.app/waitlist` directly beneath it. | **NARRATOR:** “Join FableRun now.” |
 
 ## On-screen text
 
@@ -56,5 +57,5 @@ Do not put explanatory presenter text on screen. Social captions can transcribe 
 - Use three visual modes: face camera, full-screen running footage with HUD, and close app cutaways. Avoid rapid random cuts.
 - Keep narrator, Joon and runner voices clearly distinct. No one explains the feature set.
 - Leave a short silence immediately after `SIGNAL LOST`; the empty space sells the loss before the final sprint.
-- Say “Joon… we won” while genuinely out of breath. Hold the QR card motionless for the full final eight seconds.
+- Let the narrator deliver “Join FableRun now” as the final spoken line. Hold the QR and printed waitlist link motionless for the full final eight seconds.
 - Keep the QR large, high-contrast and unobstructed. The same end card includes a native email field for viewers already watching on their phone.
